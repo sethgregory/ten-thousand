@@ -20,7 +20,8 @@ export class RoomManager {
       code,
       game,
       sockets: new Set(),
-      createdAt: Date.now()
+      createdAt: Date.now(),
+      allOfflineSince: null
     });
 
     return code;
@@ -77,12 +78,24 @@ export class RoomManager {
   }
 
   /**
-   * Clean up old rooms (e.g., older than 24 hours)
+   * Clean up old rooms (e.g., older than 24 hours) or rooms empty for > 5 mins
    */
   cleanup() {
-    const dayAgo = Date.now() - (24 * 60 * 60 * 1000);
+    const now = Date.now();
+    const dayAgo = now - (24 * 60 * 60 * 1000);
+    const fiveMinsAgo = now - (5 * 60 * 1000);
+
     for (const [code, room] of this.rooms.entries()) {
+      // Rule 1: Room is older than 24 hours
       if (room.createdAt < dayAgo) {
+        console.log(`Cleaning up room ${code} (Expired: >24h)`);
+        this.removeRoom(code);
+        continue;
+      }
+
+      // Rule 2: All players have been offline for more than 5 minutes
+      if (room.allOfflineSince && room.allOfflineSince < fiveMinsAgo) {
+        console.log(`Cleaning up room ${code} (Inactive: all players offline >5m)`);
         this.removeRoom(code);
       }
     }

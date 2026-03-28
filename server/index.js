@@ -32,6 +32,7 @@ io.on('connection', (socket) => {
       
       const player = room.game.addPlayer(playerName);
       player.isOnline = true; // Track online status
+      room.allOfflineSince = null; // Reset inactive timer
       
       socket.join(code);
       room.sockets.add(socket.id);
@@ -74,6 +75,8 @@ io.on('connection', (socket) => {
         player = room.game.addPlayer(playerName);
         player.isOnline = true;
       }
+
+      room.allOfflineSince = null; // Reset inactive timer
 
       socket.join(code);
       room.sockets.add(socket.id);
@@ -179,7 +182,15 @@ io.on('connection', (socket) => {
           player.isOnline = false;
           console.log(`Player ${player.name} went offline in room ${code}`);
 
+          // Check if ALL players are now offline
+          const anyOnline = room.game.players.some(p => p.isOnline);
+          if (!anyOnline) {
+            room.allOfflineSince = Date.now();
+            console.log(`Room ${code} is now completely offline. Cleanup timer started.`);
+          }
+
           // Broadcast update to the room
+
           io.to(code).emit('state_updated', {
             gameState: room.game.getState()
           });
@@ -197,6 +208,11 @@ io.on('connection', (socket) => {
     }
   });
 });
+
+// Run room cleanup every minute
+setInterval(() => {
+  roomManager.cleanup();
+}, 60 * 1000);
 
 const PORT = process.env.PORT || 3001;
 httpServer.listen(PORT, '0.0.0.0', () => {
