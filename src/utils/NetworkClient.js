@@ -5,7 +5,7 @@ import { EventEmitter } from './EventEmitter.js';
  * Handles communication with the multiplayer server
  */
 export class NetworkClient extends EventEmitter {
-  constructor(serverUrl = 'http://localhost:3001') {
+  constructor(serverUrl = window.location.origin) {
     super();
     this.serverUrl = serverUrl;
     this.socket = null;
