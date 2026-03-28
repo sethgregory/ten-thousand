@@ -25,16 +25,23 @@ export class Game extends EventEmitter {
    * @returns {Player} The newly created player
    */
   addPlayer(name) {
-    if (this.phase !== GAME_PHASES.SETUP) {
-      throw new Error('Cannot add players after game has started');
-    }
-
     if (this.players.length >= 8) {
       throw new Error('Maximum 8 players allowed');
     }
 
+    // Check for duplicate names
+    if (this.players.some(p => p.name === name)) {
+      throw new Error('A player with this name already exists');
+    }
+
     const player = new Player(name);
     this.players.push(player);
+
+    // If game is in progress, mark player as joined mid-game for future features
+    if (this.phase === GAME_PHASES.PLAYING || this.phase === GAME_PHASES.FINAL_ROUND) {
+      player.joinedMidGame = true;
+    }
+
     this.emit('player_added', { player, players: this.players });
     return player;
   }
@@ -44,13 +51,24 @@ export class Game extends EventEmitter {
    * @param {string} id - ID of the player to remove
    */
   removePlayer(id) {
+    // Only allow removing players during setup, or if they're offline during gameplay
     if (this.phase !== GAME_PHASES.SETUP) {
-      throw new Error('Cannot remove players after game has started');
+      const player = this.players.find(p => p.id === id);
+      if (!player || player.isOnline !== false) {
+        throw new Error('Cannot remove active players during gameplay');
+      }
     }
 
     const index = this.players.findIndex(p => p.id === id);
     if (index !== -1) {
       const removedPlayer = this.players.splice(index, 1)[0];
+
+      // If we're removing the current player during their turn, advance to next player
+      if (this.currentTurn && this.currentTurn.player.id === id) {
+        this.currentTurn.isComplete = true;
+        this.nextPlayer();
+      }
+
       this.emit('player_removed', { player: removedPlayer, players: this.players });
     }
   }

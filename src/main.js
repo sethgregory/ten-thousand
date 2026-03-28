@@ -51,15 +51,19 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // Network event listeners
-  networkClient.on('game_created', ({ code, gameState }) => {
+  networkClient.on('game_created', ({ code, gameState, hostId, isLocked }) => {
     syncGameState(gameState);
     playerManager.updateHostLobby(code, game.players);
+    // Store initial lock status
+    networkClient.currentLockStatus = isLocked;
   });
 
-  networkClient.on('game_joined', ({ code, gameState }) => {
+  networkClient.on('game_joined', ({ code, gameState, hostId, isLocked }) => {
     syncGameState(gameState);
     playerManager.showSection('join');
     playerManager.updateJoinLobby(game.players);
+    // Store initial lock status
+    networkClient.currentLockStatus = isLocked;
   });
 
   networkClient.on('player_joined', ({ gameState }) => {
@@ -75,8 +79,10 @@ document.addEventListener('DOMContentLoaded', () => {
     syncGameState(gameState);
     gameBoardContainer.innerHTML = '';
     gameBoard = new GameBoard(gameBoardContainer, game, networkClient);
+    gameBoard.setIsHost(networkClient.isHost);
+    gameBoard.updateLockStatus(networkClient.currentLockStatus || false);
     phaseEl.textContent = 'Playing (Online)';
-    
+
     // Log first turn start
     const currentPlayer = game.getCurrentPlayer();
     if (currentPlayer) {
@@ -110,6 +116,14 @@ document.addEventListener('DOMContentLoaded', () => {
   networkClient.on('rooms_list', ({ rooms }) => {
     if (playerManager) {
       playerManager.updateActiveRooms(rooms);
+    }
+  });
+
+  networkClient.on('room_lock_changed', ({ isLocked, hostId }) => {
+    if (gameBoard) {
+      gameBoard.updateLockStatus(isLocked);
+      // Also update host status in case this event arrives after rejoining
+      gameBoard.setIsHost(networkClient.playerId === hostId);
     }
   });
 
@@ -181,6 +195,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (game.phase === 'playing' && !gameBoard) {
       gameBoardContainer.innerHTML = '';
       gameBoard = new GameBoard(gameBoardContainer, game, networkClient);
+      gameBoard.setIsHost(networkClient.isHost);
+      gameBoard.updateLockStatus(networkClient.currentLockStatus || false);
       phaseEl.textContent = 'Playing (Online)';
     }
 

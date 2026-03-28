@@ -1,4 +1,5 @@
 import { EventEmitter } from '../utils/EventEmitter.js';
+import { UserConfig } from '../utils/UserConfig.js';
 
 /**
  * Handles player management during game setup
@@ -12,7 +13,8 @@ export class PlayerManager extends EventEmitter {
     super();
     this.container = container;
     this.game = game;
-    
+    this.userName = UserConfig.getUserName();
+
     this.render();
     this.setupListeners();
   }
@@ -21,9 +23,16 @@ export class PlayerManager extends EventEmitter {
    * Initial render of the setup screen
    */
   render() {
+    const welcomeMessage = this.userName
+      ? `Welcome, ${this.userName}`
+      : 'Welcome, Player';
+
     this.container.innerHTML = `
       <div class="setup-container">
-        <h2>10,000 Dice Game</h2>
+        <div class="welcome-header">
+          <h2 id="welcome-message">${welcomeMessage}</h2>
+          <button id="edit-name-btn" class="btn-link edit-name-btn" title="Edit your name">✏️</button>
+        </div>
         
         <div id="mode-selection" class="mode-selection">
           <button id="local-mode-btn" class="btn btn-primary">Local Multiplayer</button>
@@ -71,7 +80,7 @@ export class PlayerManager extends EventEmitter {
           <div id="join-setup" class="setup-section" style="display: none;">
             <h3>Join Game</h3>
             <div id="join-initial">
-              <div class="player-input-group">
+              <div class="join-input-group">
                 <input type="text" id="join-code-input" placeholder="5-letter code" maxlength="5" class="code-input">
                 <input type="text" id="join-name-input" placeholder="Your name" maxlength="20">
                 <button id="join-game-btn" class="btn btn-primary">Join</button>
@@ -97,6 +106,9 @@ export class PlayerManager extends EventEmitter {
    * Set up event listeners
    */
   setupListeners() {
+    // Name editing
+    this.container.querySelector('#edit-name-btn').addEventListener('click', () => this.editUserName());
+
     // Mode selection
     this.container.querySelector('#local-mode-btn').addEventListener('click', () => this.showSection('local'));
     this.container.querySelector('#host-mode-btn').addEventListener('click', () => this.showSection('host'));
@@ -115,13 +127,19 @@ export class PlayerManager extends EventEmitter {
     // Online setup
     this.container.querySelector('#create-game-btn').addEventListener('click', () => {
       const name = this.container.querySelector('#host-name-input').value.trim();
-      if (name) this.emit('host_game', { playerName: name });
+      if (name) {
+        this.saveUserName(name);
+        this.emit('host_game', { playerName: name });
+      }
     });
 
     this.container.querySelector('#join-game-btn').addEventListener('click', () => {
       const code = this.container.querySelector('#join-code-input').value.trim();
       const name = this.container.querySelector('#join-name-input').value.trim();
-      if (code && name) this.emit('join_game', { code, playerName: name });
+      if (code && name) {
+        this.saveUserName(name);
+        this.emit('join_game', { code, playerName: name });
+      }
     });
 
     this.container.querySelector('#start-multi-btn').addEventListener('click', () => {
@@ -131,6 +149,54 @@ export class PlayerManager extends EventEmitter {
     // Listen for game events
     this.game.on('player_added', () => this.updatePlayerList());
     this.game.on('player_removed', () => this.updatePlayerList());
+
+    // Pre-populate name fields with stored name
+    this.prefillNameFields();
+  }
+
+  /**
+   * Pre-fill name input fields with the stored user name
+   */
+  prefillNameFields() {
+    if (this.userName) {
+      const hostNameInput = this.container.querySelector('#host-name-input');
+      const joinNameInput = this.container.querySelector('#join-name-input');
+      const playerNameInput = this.container.querySelector('#player-name-input');
+
+      if (hostNameInput) hostNameInput.value = this.userName;
+      if (joinNameInput) joinNameInput.value = this.userName;
+      if (playerNameInput) playerNameInput.value = this.userName;
+    }
+  }
+
+  /**
+   * Handle editing the user name
+   */
+  editUserName() {
+    const currentName = this.userName || '';
+    const newName = prompt('Enter your name:', currentName);
+
+    if (newName !== null && newName.trim() !== '') {
+      const trimmedName = newName.trim();
+      if (trimmedName.length <= 20) {
+        this.userName = trimmedName;
+        UserConfig.setUserName(trimmedName);
+        this.updateWelcomeMessage();
+        this.prefillNameFields();
+      } else {
+        alert('Name must be 20 characters or less.');
+      }
+    }
+  }
+
+  /**
+   * Update the welcome message display
+   */
+  updateWelcomeMessage() {
+    const welcomeEl = this.container.querySelector('#welcome-message');
+    if (welcomeEl) {
+      welcomeEl.textContent = this.userName ? `Welcome, ${this.userName}` : 'Welcome, Player';
+    }
   }
 
   /**
@@ -142,7 +208,8 @@ export class PlayerManager extends EventEmitter {
     const sections = ['local', 'host', 'join'];
 
     if (section === 'mode') {
-      modeSelection.style.display = 'block';
+      modeSelection.style.display = 'flex';
+      modeSelection.style.flexDirection = 'column';
       setupContent.style.display = 'none';
       return;
     }
@@ -172,15 +239,16 @@ export class PlayerManager extends EventEmitter {
     }
 
     list.innerHTML = rooms.map(room => `
-      <div class="room-item" data-code="${room.code}">
+      <div class="room-item ${room.canJoin ? 'joinable' : 'locked'}" data-code="${room.code}" data-can-join="${room.canJoin}">
         <div class="room-item-main">
           <span class="room-code">${room.code}</span>
-          <span class="room-info">${room.hostName}'s game</span>
+          <span class="room-info">${room.hostName}'s game ${room.isLocked ? '🔒' : ''}</span>
         </div>
         <div class="room-item-meta">
           <span class="room-players">${room.playerCount} players</span>
           <span class="room-status status-${room.phase}">${room.phase}</span>
         </div>
+        ${!room.canJoin ? '<div class="room-locked-overlay">🔒 Locked</div>' : ''}
       </div>
     `).join('');
 
@@ -188,15 +256,22 @@ export class PlayerManager extends EventEmitter {
     list.querySelectorAll('.room-item').forEach(item => {
       item.addEventListener('click', () => {
         const code = item.dataset.code;
+        const canJoin = item.dataset.canJoin === 'true';
+
+        if (!canJoin) {
+          alert('This game is locked by the host and cannot be joined.');
+          return;
+        }
+
         const nameInput = this.container.querySelector('#join-name-input');
         const name = nameInput.value.trim();
-        
+
         if (!name) {
           alert('Please enter your name first!');
           nameInput.focus();
           return;
         }
-        
+
         this.emit('join_game', { code, playerName: name });
       });
     });
@@ -233,15 +308,27 @@ export class PlayerManager extends EventEmitter {
   handleAddPlayer() {
     const input = this.container.querySelector('#player-name-input');
     const name = input.value.trim();
-    
+
     if (name) {
       try {
+        this.saveUserName(name);
         this.game.addPlayer(name);
         input.value = '';
         input.focus();
       } catch (error) {
         alert(error.message);
       }
+    }
+  }
+
+  /**
+   * Save user name and update UI
+   */
+  saveUserName(name) {
+    if (name && name !== this.userName) {
+      this.userName = name;
+      UserConfig.setUserName(name);
+      this.updateWelcomeMessage();
     }
   }
 

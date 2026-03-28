@@ -21,7 +21,10 @@ export class RoomManager {
       game,
       sockets: new Set(),
       createdAt: Date.now(),
-      allOfflineSince: null
+      allOfflineSince: null,
+      lastActivity: Date.now(),
+      isLocked: false,
+      hostId: null // Will be set when first player joins
     });
 
     return code;
@@ -42,6 +45,56 @@ export class RoomManager {
    */
   removeRoom(code) {
     this.rooms.delete(code.toUpperCase());
+  }
+
+  /**
+   * Update the last activity timestamp for a room
+   * @param {string} code - The room code
+   */
+  updateActivity(code) {
+    const room = this.getRoom(code);
+    if (room) {
+      room.lastActivity = Date.now();
+    }
+  }
+
+  /**
+   * Lock or unlock a room (host only)
+   * @param {string} code - The room code
+   * @param {string} playerId - The player attempting to lock/unlock
+   * @param {boolean} locked - Whether to lock or unlock
+   * @returns {boolean} Success status
+   */
+  setRoomLock(code, playerId, locked) {
+    const room = this.getRoom(code);
+    if (!room || room.hostId !== playerId) {
+      return false; // Room doesn't exist or player is not host
+    }
+
+    room.isLocked = locked;
+    return true;
+  }
+
+  /**
+   * Check if a player can join a room
+   * @param {string} code - The room code
+   * @returns {object} {canJoin: boolean, reason?: string}
+   */
+  canPlayerJoin(code) {
+    const room = this.getRoom(code);
+    if (!room) {
+      return { canJoin: false, reason: 'Room not found' };
+    }
+
+    if (room.game.phase === 'ended') {
+      return { canJoin: false, reason: 'Game has ended' };
+    }
+
+    if (room.isLocked) {
+      return { canJoin: false, reason: 'Game is locked by host' };
+    }
+
+    return { canJoin: true };
   }
 
   /**
@@ -73,7 +126,9 @@ export class RoomManager {
         code: room.code,
         playerCount: room.game.players.length,
         phase: room.game.phase,
-        hostName: room.game.players[0]?.name || 'Unknown'
+        hostName: room.game.players[0]?.name || 'Unknown',
+        isLocked: room.isLocked,
+        canJoin: !room.isLocked && room.game.phase !== 'ended'
       }));
   }
 
@@ -96,6 +151,13 @@ export class RoomManager {
       // Rule 2: All players have been offline for more than 5 minutes
       if (room.allOfflineSince && room.allOfflineSince < fiveMinsAgo) {
         console.log(`Cleaning up room ${code} (Inactive: all players offline >5m)`);
+        this.removeRoom(code);
+        continue;
+      }
+
+      // Rule 3: Games in setup mode with no activity for 5+ minutes
+      if (room.game.phase === 'setup' && room.lastActivity && room.lastActivity < fiveMinsAgo) {
+        console.log(`Cleaning up room ${code} (Setup phase inactive >5m)`);
         this.removeRoom(code);
       }
     }

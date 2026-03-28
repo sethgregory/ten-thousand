@@ -1,3 +1,7 @@
+/**
+ * @jest-environment jsdom
+ */
+
 import { DiceRenderer } from '../../src/ui/DiceRenderer.js';
 import { DICE_STATES } from '../../src/utils/constants.js';
 import { jest } from '@jest/globals';

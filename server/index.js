@@ -33,6 +33,8 @@ io.on('connection', (socket) => {
       const player = room.game.addPlayer(playerName);
       player.isOnline = true; // Track online status
       room.allOfflineSince = null; // Reset inactive timer
+      room.hostId = player.id; // Set the host
+      roomManager.updateActivity(code); // Track activity
       
       socket.join(code);
       room.sockets.add(socket.id);
@@ -41,7 +43,9 @@ io.on('connection', (socket) => {
       socket.emit('game_created', {
         code,
         playerId: player.id,
-        gameState: room.game.getState()
+        gameState: room.game.getState(),
+        hostId: room.hostId,
+        isLocked: room.isLocked
       });
       
       // Notify all clients about the new room
@@ -65,6 +69,14 @@ io.on('connection', (socket) => {
       return;
     }
 
+    // Check if player can join this room
+    const joinCheck = roomManager.canPlayerJoin(code);
+    if (!joinCheck.canJoin) {
+      console.warn(`Join failed: ${joinCheck.reason}`);
+      socket.emit('error', { message: joinCheck.reason });
+      return;
+    }
+
     try {
       // Check if player is rejoining (same name)
       let player = room.game.players.find(p => p.name === playerName);
@@ -77,6 +89,7 @@ io.on('connection', (socket) => {
       }
 
       room.allOfflineSince = null; // Reset inactive timer
+      roomManager.updateActivity(code); // Track activity
 
       socket.join(code);
       room.sockets.add(socket.id);
@@ -86,7 +99,9 @@ io.on('connection', (socket) => {
       socket.emit('game_joined', {
         code,
         playerId: player.id,
-        gameState: room.game.getState()
+        gameState: room.game.getState(),
+        hostId: room.hostId,
+        isLocked: room.isLocked
       });
 
       // Notify others in the room
@@ -117,12 +132,39 @@ io.on('connection', (socket) => {
 
     try {
       room.game.startGame();
+      roomManager.updateActivity(code); // Track activity
       io.to(code).emit('game_started', {
         gameState: room.game.getState()
       });
     } catch (error) {
       socket.emit('error', { message: error.message });
     }
+  });
+
+  // Lock/unlock game (host only)
+  socket.on('toggle_room_lock', ({ code, locked }) => {
+    const mapping = socketToPlayer.get(socket.id);
+    if (!mapping || mapping.code !== code) {
+      socket.emit('error', { message: 'You are not in this game.' });
+      return;
+    }
+
+    const success = roomManager.setRoomLock(code, mapping.playerId, locked);
+    if (!success) {
+      socket.emit('error', { message: 'Only the host can lock/unlock the game.' });
+      return;
+    }
+
+    // Notify all players in the room about lock status change
+    io.to(code).emit('room_lock_changed', {
+      isLocked: locked,
+      hostId: roomManager.getRoom(code).hostId
+    });
+
+    // Update room list for all clients
+    io.emit('rooms_list', { rooms: roomManager.getActiveRooms() });
+
+    console.log(`Room ${code} ${locked ? 'locked' : 'unlocked'} by host`);
   });
 
   // Perform a game action
@@ -158,7 +200,8 @@ io.on('connection', (socket) => {
           break;
       }
 
-      // Broadcast updated state to everyone in the room
+      // Track activity and broadcast updated state to everyone in the room
+      roomManager.updateActivity(code);
       io.to(code).emit('state_updated', {
         gameState: game.getState(),
         lastAction: { action, data, result, playerId: actorId }

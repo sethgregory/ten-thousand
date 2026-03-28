@@ -20,6 +20,8 @@ export class GameBoard extends EventEmitter {
     this.game = game;
     this.networkClient = networkClient;
     this.isRemote = !!networkClient;
+    this.isHost = false; // Will be set by main.js
+    this.roomLocked = false; // Track lock status
     
     this.initLayout();
     this.initComponents();
@@ -111,6 +113,11 @@ export class GameBoard extends EventEmitter {
         <section class="game-play-area">
           <div class="game-info-bar">
             ${this.isRemote ? `<div class="room-indicator">Room: <strong>${this.networkClient.roomCode}</strong></div>` : ''}
+            ${this.isRemote ? `<div class="lock-controls" style="display: none;">
+              <button id="lock-toggle-btn" class="btn-link lock-btn" title="Lock/unlock game">
+                <span id="lock-icon">🔓</span> <span id="lock-text">Open</span>
+              </button>
+            </div>` : ''}
           </div>
           <div id="dice-container" class="dice-container-wrapper"></div>
           <div id="controls-container" class="controls-container"></div>
@@ -359,7 +366,7 @@ export class GameBoard extends EventEmitter {
       this.controls.setStatusMessage('You can roll again or bank these points.');
     }
     
-    // Can bank if they have points AND are either already on board OR would reach 800
+    // Can bank if they have points AND are either already on board OR would reach 750
     const canBank = turn.player.canBankScore(totalPotentialScore) && hasValidSelection;
     
     this.controls.setBankEnabled(canBank);
@@ -411,6 +418,59 @@ export class GameBoard extends EventEmitter {
         turn.endTurn();
       } catch (error) {
         this.controls.setStatusMessage(error.message, 'warning');
+      }
+    }
+  }
+
+  /**
+   * Set whether this player is the host (shows lock controls)
+   */
+  setIsHost(isHost) {
+    this.isHost = isHost;
+    const lockControls = this.container.querySelector('.lock-controls');
+    if (lockControls) {
+      lockControls.style.display = isHost ? 'block' : 'none';
+
+      // Add click listener if not already added
+      if (isHost && !this.lockListenerAdded) {
+        const lockBtn = this.container.querySelector('#lock-toggle-btn');
+        if (lockBtn) {
+          lockBtn.addEventListener('click', () => this.toggleRoomLock());
+          this.lockListenerAdded = true;
+        }
+      }
+    }
+  }
+
+  /**
+   * Toggle room lock status
+   */
+  toggleRoomLock() {
+    if (!this.isHost || !this.isRemote) return;
+
+    const newLockState = !this.roomLocked;
+    this.networkClient.socket.emit('toggle_room_lock', {
+      code: this.networkClient.roomCode,
+      locked: newLockState
+    });
+  }
+
+  /**
+   * Update lock status display
+   */
+  updateLockStatus(isLocked) {
+    this.roomLocked = isLocked;
+    const lockIcon = this.container.querySelector('#lock-icon');
+    const lockText = this.container.querySelector('#lock-text');
+
+    if (lockIcon && lockText) {
+      lockIcon.textContent = isLocked ? '🔒' : '🔓';
+      lockText.textContent = isLocked ? 'Locked' : 'Open';
+
+      // Update button title
+      const lockBtn = this.container.querySelector('#lock-toggle-btn');
+      if (lockBtn) {
+        lockBtn.title = isLocked ? 'Unlock game (allow new players)' : 'Lock game (prevent new players)';
       }
     }
   }

@@ -91,19 +91,40 @@ describe('Game', () => {
     expect(game.turnCount).toBe(2);
   });
 
-  test('should enforce 800-point on-board requirement', () => {
+  test('should enforce 750-point on-board requirement', () => {
     game.addPlayer('Alice');
     game.startGame();
-    
+
     const turn = game.currentTurn;
-    turn.turnScore = 100; // Under 800
-    
-    expect(() => turn.endTurn()).toThrow(/Need at least 800 to get on the board/);
-    
-    turn.turnScore = 800; // Exactly 800
+    turn.turnScore = 100; // Under 750
+
+    expect(() => turn.endTurn()).toThrow(/Need at least 750 to get on the board/);
+
+    turn.turnScore = 750; // Exactly 750
     turn.endTurn();
-    
-    expect(game.players[0].totalScore).toBe(800);
+
+    expect(game.players[0].totalScore).toBe(750);
     expect(game.players[0].isOnBoard).toBe(true);
+  });
+
+  test('should allow players to join mid-game', () => {
+    // Start game with one player
+    game.addPlayer('Alice');
+    game.startGame();
+
+    expect(game.phase).toBe('playing');
+    expect(game.players).toHaveLength(1);
+
+    // Add player during gameplay
+    const newPlayer = game.addPlayer('Bob');
+    expect(game.players).toHaveLength(2);
+    expect(newPlayer.name).toBe('Bob');
+    expect(newPlayer.joinedMidGame).toBe(true);
+    expect(newPlayer.totalScore).toBe(0);
+  });
+
+  test('should prevent duplicate player names', () => {
+    game.addPlayer('Alice');
+    expect(() => game.addPlayer('Alice')).toThrow('A player with this name already exists');
   });
 });

@@ -342,13 +342,38 @@ body {
   max-width: 400px;
   margin: 0 auto;
   text-align: center;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0 20px;
 }
 
 .mode-selection {
-  display: flex;
-  flex-direction: column;
+  display: flex !important;
+  flex-direction: column !important;
   gap: 15px;
   margin-top: 20px;
+  width: 100%;
+  align-items: stretch;
+}
+
+.mode-selection .btn {
+  width: 100% !important;
+  min-height: 44px;
+  font-size: 1rem;
+  display: block !important;
+  margin-bottom: 0 !important;
+  flex-shrink: 0 !important;
+}
+
+/* Prevent any potential layout issues */
+.mode-selection .btn:not(:last-child) {
+  margin-bottom: 15px;
+}
+
+/* Ensure setup content doesn't interfere */
+.setup-content {
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .back-nav {
@@ -412,13 +437,42 @@ body {
   border-radius: 6px;
   cursor: pointer;
   transition: all 0.2s ease;
+  position: relative;
 }
 
-.room-item:hover {
+.room-item.joinable:hover {
   border-color: var(--dice-selected);
   background-color: rgba(52, 152, 219, 0.05);
   transform: translateY(-1px);
   box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.room-item.locked {
+  opacity: 0.6;
+  cursor: not-allowed;
+  background-color: #f8f9fa;
+}
+
+.room-item.locked:hover {
+  transform: none;
+  box-shadow: none;
+}
+
+.room-locked-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(255, 255, 255, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  font-size: 0.9rem;
+  color: var(--gray);
+  border-radius: 6px;
+  pointer-events: none;
 }
 
 .room-item-main {
@@ -480,6 +534,40 @@ body {
   color: var(--primary-color);
 }
 
+/* Welcome Header Styles */
+.welcome-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 20px;
+  position: relative;
+}
+
+.welcome-header h2 {
+  margin: 0;
+  color: var(--primary-color);
+}
+
+.edit-name-btn {
+  font-size: 1rem;
+  padding: 4px 8px;
+  border-radius: 50%;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 28px;
+  background-color: transparent;
+  transition: all 0.2s ease;
+}
+
+.edit-name-btn:hover {
+  background-color: rgba(52, 152, 219, 0.1);
+  transform: scale(1.1);
+}
+
 .player-input-group {
   display: flex;
   gap: 10px;
@@ -491,6 +579,29 @@ body {
   padding: 10px;
   border: 1px solid var(--gray);
   border-radius: 4px;
+  font-size: 1rem;
+}
+
+/* Join game specific input group - stacked layout for mobile friendliness */
+.join-input-group {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  margin-bottom: 20px;
+}
+
+.join-input-group input {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid var(--gray);
+  border-radius: 4px;
+  font-size: 1rem;
+  box-sizing: border-box;
+}
+
+.join-input-group button {
+  width: 100%;
+  padding: 12px;
   font-size: 1rem;
 }
 
@@ -573,4 +684,47 @@ body {
 
 .flash-active {
   animation: flash-overlay 0.8s ease-out;
+}
+
+/* Lock controls styles */
+.game-info-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--bg-color);
+}
+
+.room-indicator {
+  font-size: 0.9rem;
+  color: var(--secondary-color);
+}
+
+.lock-controls {
+  display: flex;
+  align-items: center;
+}
+
+.lock-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.85rem;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: background-color 0.2s ease;
+}
+
+.lock-btn:hover {
+  background-color: rgba(52, 152, 219, 0.1);
+}
+
+#lock-icon {
+  font-size: 1rem;
+}
+
+#lock-text {
+  font-size: 0.8rem;
+  font-weight: 500;
 }

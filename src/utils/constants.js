@@ -2,7 +2,7 @@
 export const GAME_CONFIG = {
   DICE_COUNT: 6,
   WINNING_SCORE: 10000,
-  MINIMUM_BOARD_SCORE: 800,
+  MINIMUM_BOARD_SCORE: 750,
   DICE_FACES: 6
 };
 
@@ -64,7 +64,7 @@ export const COMBO_TYPES = {
 export const ERROR_MESSAGES = {
   NO_SCORING_DICE: 'You must select at least one scoring die.',
   INVALID_SELECTION: 'Selected dice do not form a valid scoring combination.',
-  NOT_ON_BOARD: 'You need 800 or more points to get on the board.',
+  NOT_ON_BOARD: 'You need 750 or more points to get on the board.',
   GAME_ENDED: 'The game has already ended.',
   NO_PLAYERS: 'Cannot start game without players.'
 };

@@ -41,14 +41,14 @@ export class NetworkClient extends EventEmitter {
     this.socket.on('game_created', (data) => {
       this.roomCode = data.code;
       this.playerId = data.playerId;
-      this.isHost = true;
+      this.isHost = data.playerId === data.hostId; // Should always be true for game_created
       this.emit('game_created', data);
     });
 
     this.socket.on('game_joined', (data) => {
       this.roomCode = data.code;
       this.playerId = data.playerId;
-      this.isHost = false;
+      this.isHost = data.playerId === data.hostId; // Check if rejoining as host
       this.emit('game_joined', data);
     });
 
@@ -66,6 +66,10 @@ export class NetworkClient extends EventEmitter {
 
     this.socket.on('rooms_list', (data) => {
       this.emit('rooms_list', data);
+    });
+
+    this.socket.on('room_lock_changed', (data) => {
+      this.emit('room_lock_changed', data);
     });
 
     this.socket.on('error', (error) => {
