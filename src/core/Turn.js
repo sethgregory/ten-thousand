@@ -66,6 +66,7 @@ export class Turn extends EventEmitter {
       this.completeTurn(TURN_RESULTS.BUST);
       return {
         diceValues,
+        availableValues, // Include this for the UI/Network listeners
         canScore: false,
         result: TURN_RESULTS.BUST,
         scoringOptions: []
@@ -306,11 +307,16 @@ export class Turn extends EventEmitter {
 
   /**
    * Check if the current dice selection is valid for scoring
+   * (Every selected die must be part of a scoring combination)
    * @returns {boolean} True if current selection is valid
    */
   hasValidSelection() {
     const selectedValues = this.dice.getSelectedValues();
-    return selectedValues.length > 0 && Scorer.canScore(selectedValues);
+    if (selectedValues.length === 0) return false;
+    
+    const result = Scorer.calculateScore(selectedValues);
+    // Valid only if ALL selected dice were used in the optimal scoring set
+    return result.score > 0 && result.usedDice.length === selectedValues.length;
   }
 
   /**

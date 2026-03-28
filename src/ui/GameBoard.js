@@ -12,15 +12,93 @@ export class GameBoard extends EventEmitter {
   /**
    * @param {HTMLElement} container - The main game board container
    * @param {object} game - The Game instance
+   * @param {NetworkClient} [networkClient] - Optional network client for multiplayer
    */
-  constructor(container, game) {
+  constructor(container, game, networkClient = null) {
     super();
     this.container = container;
     this.game = game;
+    this.networkClient = networkClient;
+    this.isRemote = !!networkClient;
     
     this.initLayout();
     this.initComponents();
     this.setupListeners();
+    
+    // Render initial state if game is already in progress
+    if (this.game.phase !== 'setup') {
+      this.renderCurrentState();
+    }
+  }
+
+  /**
+   * Render the current game state (used for initial render when joining)
+   */
+  renderCurrentState() {
+    const players = this.game.players.map(p => p.getState());
+    const currentPlayer = this.game.getCurrentPlayer();
+    
+    this.scoreBoard.update(players, currentPlayer?.id);
+    
+    if (this.isRemote) {
+      this.gameLog.log(`Connected to room: ${this.networkClient.roomCode}`, 'system');
+    }
+
+    if (this.game.currentTurn) {
+      const turn = this.game.currentTurn;
+      this.diceRenderer.setTurn(turn);
+      this.diceRenderer.render(turn.dice.getAllStates());
+      this.scoreBoard.updateTurnScore(turn.turnScore);
+      this.updateControlStates();
+    }
+  }
+
+  /**
+   * Handle an action performed by a remote player (for logging/animations)
+   * @param {object} lastAction - Action data from the server
+   */
+  handleRemoteAction(lastAction) {
+    const { action, result, playerId } = lastAction;
+    const actor = this.game.players.find(p => p.id === playerId);
+    if (!actor) return;
+
+    switch (action) {
+      case 'roll':
+        if (result && result.availableValues) {
+          const rollStr = result.availableValues.join(', ');
+          this.gameLog.log(`${actor.name} rolled: [${rollStr}]`);
+          this.diceRenderer.animateRolling();
+          
+          if (result.result === 'bust') {
+            this.gameLog.log(`!!! BUST !!! ${actor.name} rolled no scoring dice.`, 'bust');
+            this.triggerBustFlash();
+          }
+        }
+        break;
+        
+      case 'bank':
+        if (result && result.pointsScored !== undefined) {
+          this.gameLog.log(`${actor.name} ended turn and banked ${result.pointsScored} points. Total: ${actor.totalScore}.`, 'success');
+        }
+        break;
+        
+      case 'select':
+        // 'select' actions are usually too noisy to log individually
+        break;
+    }
+  }
+
+  /**
+   * Temporarily flash the background red to indicate a bust
+   */
+  triggerBustFlash() {
+    const overlay = document.getElementById('bust-flash-overlay');
+    if (overlay) {
+      overlay.classList.add('flash-active');
+      setTimeout(() => {
+        overlay.classList.remove('flash-active');
+      }, 800);
+    }
   }
 
   /**
@@ -31,6 +109,9 @@ export class GameBoard extends EventEmitter {
       <div class="game-board-grid">
         <aside id="scoreboard-container" class="scoreboard-container"></aside>
         <section class="game-play-area">
+          <div class="game-info-bar">
+            ${this.isRemote ? `<div class="room-indicator">Room: <strong>${this.networkClient.roomCode}</strong></div>` : ''}
+          </div>
           <div id="dice-container" class="dice-container-wrapper"></div>
           <div id="controls-container" class="controls-container"></div>
           <div id="game-log-container" class="game-log-container"></div>
@@ -66,7 +147,16 @@ export class GameBoard extends EventEmitter {
     // UI events
     this.controls.on('roll_clicked', () => this.onRollClicked());
     this.controls.on('bank_clicked', () => this.onBankClicked());
-    this.diceRenderer.on('die_clicked', () => this.updateControlStates());
+    this.diceRenderer.on('die_clicked', (data) => {
+      if (this.isRemote) {
+        // Only allow clicking if it's our turn
+        if (this.game.getCurrentPlayer().id === this.networkClient.playerId) {
+          this.networkClient.sendAction('select', { index: data.index });
+        }
+      } else {
+        this.updateControlStates();
+      }
+    });
   }
 
   /**
@@ -76,6 +166,10 @@ export class GameBoard extends EventEmitter {
     this.scoreBoard.update(players.map(p => p.getState()), currentPlayer.id);
     this.controls.setStatusMessage(`Game started! ${currentPlayer.name}'s turn.`);
     this.gameLog.log(`Game started with ${players.length} players.`, 'system');
+    
+    if (this.isRemote) {
+      this.gameLog.log(`Your name: ${players.find(p => p.id === this.networkClient.playerId)?.name}`, 'info');
+    }
   }
 
   /**
@@ -87,8 +181,17 @@ export class GameBoard extends EventEmitter {
     this.scoreBoard.update(this.game.players.map(p => p.getState()), player.id);
     this.scoreBoard.updateTurnScore(0);
     this.controls.reset();
-    this.controls.setStatusMessage(`${player.name}'s turn. Roll the dice!`);
-    this.controls.setRollEnabled(true);
+    
+    const isOurTurn = this.isRemote ? player.id === this.networkClient.playerId : true;
+    
+    if (isOurTurn) {
+      this.controls.setStatusMessage(`It's YOUR turn! Roll the dice!`, 'success');
+      this.controls.setRollEnabled(true);
+    } else {
+      this.controls.setStatusMessage(`Waiting for ${player.name}...`, 'info');
+      this.controls.setRollEnabled(false);
+    }
+    
     this.gameLog.log(`--- ${player.name}'s Turn ---`, 'system');
   }
 
@@ -102,14 +205,21 @@ export class GameBoard extends EventEmitter {
     const rollStr = availableValues.join(', ');
     this.gameLog.log(`${turn.player.name} rolled: [${rollStr}]`);
 
+    const isOurTurn = this.isRemote ? turn.player.id === this.networkClient.playerId : true;
+
     if (scoringOptions.length === 0) {
       this.controls.setStatusMessage('BUST! No scoring dice.', 'error');
       this.controls.setRollEnabled(false);
       this.controls.setBankEnabled(false);
       this.gameLog.log(`!!! BUST !!! ${turn.player.name} rolled no scoring dice.`, 'bust');
+      this.triggerBustFlash();
     } else {
-      this.controls.setStatusMessage('Select scoring dice to continue or bank.');
-      this.updateControlStates();
+      if (isOurTurn) {
+        this.controls.setStatusMessage('Select scoring dice to continue or bank.');
+        this.updateControlStates();
+      } else {
+        this.controls.setStatusMessage(`${turn.player.name} is selecting dice...`);
+      }
     }
   }
 
@@ -117,7 +227,15 @@ export class GameBoard extends EventEmitter {
    * Handle dice selection event
    */
   onDiceSelected({ selectedValues, score }) {
-    this.updateControlStates();
+    const turn = this.game.currentTurn;
+    const isOurTurn = this.isRemote ? turn.player.id === this.networkClient.playerId : true;
+    
+    if (isOurTurn) {
+      this.updateControlStates();
+    } else {
+      // Just re-render to show selection
+      this.diceRenderer.render(turn.dice.getAllStates());
+    }
   }
 
   /**
@@ -125,11 +243,19 @@ export class GameBoard extends EventEmitter {
    */
   onDiceBanked({ pointsScored, totalTurnScore, remainingDiceCount }) {
     const turn = this.game.currentTurn;
+    const isOurTurn = this.isRemote ? turn.player.id === this.networkClient.playerId : true;
+
     this.scoreBoard.updateTurnScore(totalTurnScore);
     this.diceRenderer.render(turn.dice.getAllStates());
-    this.controls.setStatusMessage(`Banked ${pointsScored} pts. ${remainingDiceCount} dice remaining.`);
+    
+    if (isOurTurn) {
+      this.controls.setStatusMessage(`Banked ${pointsScored} pts. ${remainingDiceCount} dice remaining.`);
+      this.updateControlStates();
+    } else {
+      this.controls.setStatusMessage(`${turn.player.name} banked ${pointsScored} pts.`);
+    }
+    
     this.gameLog.log(`${turn.player.name} kept scoring dice and banked ${pointsScored} points (Turn total: ${totalTurnScore}).`, 'success');
-    this.updateControlStates();
   }
 
   /**
@@ -148,6 +274,7 @@ export class GameBoard extends EventEmitter {
       this.gameLog.log(`${player.name} ended turn and banked ${pointsScored} points. Total: ${totalScore}.`, 'success');
     } else if (result === TURN_RESULTS.BUST) {
       this.gameLog.log(`${player.name}'s turn ended in a bust.`, 'error');
+      this.triggerBustFlash();
     }
   }
 
@@ -156,11 +283,19 @@ export class GameBoard extends EventEmitter {
    */
   onHotDice({ pointsScored, totalTurnScore }) {
     const turn = this.game.currentTurn;
+    const isOurTurn = this.isRemote ? turn.player.id === this.networkClient.playerId : true;
+
     this.scoreBoard.updateTurnScore(totalTurnScore);
     this.diceRenderer.render(turn.dice.getAllStates());
-    this.controls.setStatusMessage('HOT DICE! All dice scored. Roll again!', 'success');
-    this.controls.setRollEnabled(true);
-    this.controls.setBankEnabled(false);
+    
+    if (isOurTurn) {
+      this.controls.setStatusMessage('HOT DICE! All dice scored. Roll again!', 'success');
+      this.controls.setRollEnabled(true);
+      this.controls.setBankEnabled(false);
+    } else {
+      this.controls.setStatusMessage(`HOT DICE! ${turn.player.name} must roll again.`);
+    }
+    
     this.gameLog.log(`HOT DICE! ${turn.player.name} scored with all 6 dice! Must roll again.`, 'success');
   }
 
@@ -179,11 +314,50 @@ export class GameBoard extends EventEmitter {
    */
   updateControlStates() {
     const turn = this.game.currentTurn;
-    if (!turn || turn.isComplete) return;
+    if (!turn || turn.isComplete) {
+      this.controls.setRollEnabled(false);
+      this.controls.setBankEnabled(false);
+      this.controls.updateRollButton('Roll Dice');
+      return;
+    }
 
-    const hasValidSelection = turn.hasValidSelection();
     const currentSelectedScore = turn.getSelectedScore();
     const totalPotentialScore = turn.turnScore + currentSelectedScore;
+    const hasValidSelection = turn.hasValidSelection();
+
+    // Update Roll button text for Hot Dice (Common for all players)
+    let totalScoringCount = 0;
+    if (this.isRemote) {
+      const diceStates = turn.dice.getAllStates();
+      totalScoringCount = diceStates.filter(d => d.state === 'locked' || d.state === 'selected').length;
+    } else {
+      totalScoringCount = turn.dice.dice.filter(d => d.state === 'locked' || d.state === 'selected').length;
+    }
+
+    if (totalScoringCount === 6 && hasValidSelection) {
+      this.controls.updateRollButton('HOT DICE!');
+    } else {
+      this.controls.updateRollButton('Roll Dice');
+    }
+
+    // In remote mode, we only enable controls if it's our turn
+    if (this.isRemote && turn.player && turn.player.id !== this.networkClient.playerId) {
+      this.controls.setRollEnabled(false);
+      this.controls.setBankEnabled(false);
+      this.controls.updateBankButton(totalPotentialScore);
+      return;
+    }
+
+    const selectedCount = turn.dice.getSelectedCount();
+    
+    console.log(`[UI] updateControlStates: selectedCount=${selectedCount}, hasValidSelection=${hasValidSelection}`);
+    
+    // Provide feedback if they have selected dice that don't all score
+    if (selectedCount > 0 && !hasValidSelection) {
+      this.controls.setStatusMessage('Selected dice include non-scoring values.', 'warning');
+    } else if (selectedCount > 0) {
+      this.controls.setStatusMessage('You can roll again or bank these points.');
+    }
     
     // Can bank if they have points AND are either already on board OR would reach 800
     const canBank = turn.player.canBankScore(totalPotentialScore) && hasValidSelection;
@@ -199,6 +373,11 @@ export class GameBoard extends EventEmitter {
    * Handle roll button click
    */
   onRollClicked() {
+    if (this.isRemote) {
+      this.networkClient.sendAction('roll');
+      return;
+    }
+
     const turn = this.game.currentTurn;
     if (turn && !turn.isComplete) {
       try {
@@ -217,6 +396,11 @@ export class GameBoard extends EventEmitter {
    * Handle bank button click
    */
   onBankClicked() {
+    if (this.isRemote) {
+      this.networkClient.sendAction('bank');
+      return;
+    }
+
     const turn = this.game.currentTurn;
     if (turn && !turn.isComplete) {
       try {

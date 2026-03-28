@@ -40,8 +40,11 @@ export class ScoreBoard extends EventEmitter {
     if (!list) return;
 
     list.innerHTML = players.map(player => `
-      <div class="player-score-item ${player.id === currentPlayerId ? 'current-player-item' : ''} ${player.isOnBoard ? 'on-board' : ''}">
-        <span class="player-name">${player.name}${player.id === currentPlayerId ? ' 🎲' : ''}</span>
+      <div class="player-score-item ${player.id === currentPlayerId ? 'current-player-item' : ''} ${player.isOnBoard ? 'on-board' : ''} ${player.isOnline === false ? 'is-offline' : ''}">
+        <span class="player-name">
+          ${player.name}${player.id === currentPlayerId ? ' 🎲' : ''}
+          ${player.isOnline === false ? '<small>(Offline)</small>' : ''}
+        </span>
         <span class="player-points">${player.totalScore.toLocaleString()}</span>
         ${!player.isOnBoard ? '<span class="off-board-badge">Off Board</span>' : ''}
       </div>

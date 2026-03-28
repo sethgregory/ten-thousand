@@ -81,6 +81,14 @@ export class Controls extends EventEmitter {
   }
 
   /**
+   * Update the label of the roll button
+   * @param {string} text - Button text
+   */
+  updateRollButton(text) {
+    this.rollBtn.textContent = text;
+  }
+
+  /**
    * Reset controls to default state
    */
   reset() {

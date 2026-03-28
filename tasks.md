@@ -9,10 +9,10 @@ Web-based implementation of the "10,000" dice game with comprehensive scoring ru
 
 #### 1. Project Structure and Configuration
 - [x] Initialize Vite project with proper directory structure
-- [x] Set up package.json with dependencies (Vite, Jest)
+- [x] Set up package.json with dependencies (Vite, Jest, Express, Socket.io)
 - [x] Create vite.config.js for development server
 - [x] Set up basic HTML structure in index.html
-- [x] Create organized directory structure (src/core, src/ui, src/utils, tests)
+- [x] Create organized directory structure (src/core, src/ui, src/utils, server, tests)
 
 #### 2. Core Game Constants and Utilities
 - [x] Create constants.js with all game rules and scoring values
@@ -28,6 +28,7 @@ Web-based implementation of the "10,000" dice game with comprehensive scoring ru
 - [x] Three pairs detection (1000pts)
 - [x] Priority-based optimal scoring selection
 - [x] Scoring validation and breakdown functions
+- [x] Multi-combination scoring (optimal search for highest sum)
 
 #### 4. Dice System and Game Logic
 - [x] Create Dice.js with Die and DiceSet classes
@@ -45,6 +46,7 @@ Web-based implementation of the "10,000" dice game with comprehensive scoring ru
   - [x] Visual dice with pip representation
   - [x] Click/tap selection with visual feedback
   - [x] State management (available/selected/locked)
+  - [x] Strict selection rules (only scoring dice selectable)
 - [x] Build GameBoard.js - main game interface coordinator
   - [x] Coordinate multiple UI components
   - [x] Handle game state transitions in the UI
@@ -52,6 +54,12 @@ Web-based implementation of the "10,000" dice game with comprehensive scoring ru
 - [x] Implement ScoreBoard.js for real-time score display
 - [x] Create control components (Roll/Bank buttons)
 - [x] Player management UI (add/remove players)
+- [x] Scrolling Game Log for action tracking
+- [x] Multiplayer Support
+  - [x] Node.js backend server with Socket.io
+  - [x] 5-letter unique room code system
+  - [x] Real-time state synchronization
+  - [x] Remote turn-based play enforcement
 
 #### 6. Visual Design and Styling
 - [x] Create main.css with layout and visual hierarchy
@@ -67,7 +75,7 @@ Web-based implementation of the "10,000" dice game with comprehensive scoring ru
 #### 7. Testing and Validation
 - [x] Unit tests for Game.js (player management, turns, phases)
 - [x] Unit tests for DiceRenderer.js (DOM rendering, interaction)
-- [ ] Unit tests for Scorer.js (all rule combinations)
+- [x] Unit tests for Scorer.js (multi-combination scoring)
 - [ ] Integration tests for complete game flows
 - [ ] End-to-end tests for rule validation
 
@@ -79,12 +87,13 @@ Web-based implementation of the "10,000" dice game with comprehensive scoring ru
 - ✅ Comprehensive scoring engine
 - ✅ Complete core game logic (Game.js, Player.js, Turn.js, Dice.js)
 
-### Phase 2: User Interface (Completed)
-**Goal:** Interactive, functional game interface
+### Phase 2: User Interface & Multiplayer (Completed)
+**Goal:** Interactive, functional game interface with online play
 - ✅ Interactive dice display and selection
 - ✅ Game controls and player management
 - ✅ Real-time score display and game status
-- ✅ Event-driven UI updates
+- ✅ Scrolling action log
+- ✅ Multiplayer hosting/joining via codes
 
 ### Phase 3: Polish and Enhancement (Current)
 **Goal:** Professional, polished user experience
@@ -104,15 +113,15 @@ Web-based implementation of the "10,000" dice game with comprehensive scoring ru
 
 - [x] **Milestone 1:** Core game rules implemented and validated
 - [x] **Milestone 2:** Complete game logic with turn management
-- [x] **Milestone 3:** Functional interactive interface
+- [x] **Milestone 3:** Functional interactive interface & Multiplayer
 - [ ] **Milestone 4:** Polished, production-ready game
 
 ## Next Immediate Steps
 
-1. **Polish Visuals** - Refine animations and themes
-2. **Accessibility** - Add keyboard support and ARIA labels
-3. **Integration Testing** - Ensure all edge cases are handled
-4. **Game Options** - Add score limit settings or player count limits
+1. **Multiplayer Polish** - Handle disconnections and rejoining
+2. **Visual Refinement** - Add better animations for rolling and banking
+3. **Game Settings** - Allow custom win scores or minimum board scores
+4. **Mobile Experience** - Further refine touch interactions
 
 ## Technical Architecture
 
@@ -123,12 +132,18 @@ Game.js (controller)
 ├── DiceSet.js (dice management)
 └── Scorer.js (rule engine)
 
+Multiplayer Layer:
+├── server/index.js (Socket.io server)
+├── server/RoomManager.js (Lobby/Room logic)
+└── src/utils/NetworkClient.js (Frontend sync)
+
 UI Components:
 ├── GameBoard.js (main interface coordinator)
 │   ├── ScoreBoard.js (score display)
 │   ├── DiceRenderer.js (interactive dice)
-│   └── Controls.js (buttons and status)
-└── PlayerManager.js (setup screen)
+│   ├── Controls.js (buttons and status)
+│   └── GameLog.js (action history)
+└── PlayerManager.js (setup & mode selection screen)
 ```
 
 ## Rule Validation Checklist

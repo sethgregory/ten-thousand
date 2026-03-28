@@ -13,6 +13,7 @@ export class Player extends EventEmitter {
     this.isOnBoard = false;
     this.turnHistory = [];
     this.isActive = false;
+    this.isOnline = true;
   }
 
   /**
@@ -164,6 +165,7 @@ export class Player extends EventEmitter {
       totalScore: this.totalScore,
       isOnBoard: this.isOnBoard,
       isActive: this.isActive,
+      isOnline: this.isOnline,
       turnCount: this.turnHistory.length,
       hasWon: this.hasWon()
     };
@@ -204,6 +206,7 @@ export class Player extends EventEmitter {
     player.isOnBoard = data.isOnBoard || false;
     player.turnHistory = data.turnHistory || [];
     player.isActive = data.isActive || false;
+    player.isOnline = data.isOnline !== undefined ? data.isOnline : true;
     return player;
   }
 
@@ -218,7 +221,8 @@ export class Player extends EventEmitter {
       totalScore: this.totalScore,
       isOnBoard: this.isOnBoard,
       turnHistory: this.turnHistory,
-      isActive: this.isActive
+      isActive: this.isActive,
+      isOnline: this.isOnline
     };
   }
 

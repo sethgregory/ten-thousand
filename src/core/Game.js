@@ -151,6 +151,29 @@ export class Game extends EventEmitter {
   }
 
   /**
+   * Sync game state with external data (used for multiplayer)
+   * @param {object} state - Game state data
+   */
+  syncState(state) {
+    if (state.players) {
+      this.players = state.players.map(p => {
+        const player = Player.fromSaveData(p);
+        // isOnline is already handled by fromSaveData
+        return player;
+      });
+    }
+    
+    this.phase = state.phase;
+    this.turnCount = state.turnCount;
+    this.finalRoundStarter = state.finalRoundStarter ? Player.fromSaveData(state.finalRoundStarter) : null;
+    this.winner = state.winner ? Player.fromSaveData(state.winner) : null;
+    
+    if (state.currentPlayer) {
+      this.currentPlayerIndex = this.players.findIndex(p => p.id === state.currentPlayer.id);
+    }
+  }
+
+  /**
    * Advance to the next player
    */
   nextPlayer() {

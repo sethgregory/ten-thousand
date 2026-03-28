@@ -24,6 +24,7 @@ dist-ssr/
 tmp/
 .temp/
 temp/
+*.log
 
 # OS files
 .DS_Store
