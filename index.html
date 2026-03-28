@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>10,000 Dice Game</title>
+    <link rel="stylesheet" href="/src/styles/main.css">
+    <link rel="stylesheet" href="/src/styles/components/dice.css">
+</head>
+<body>
+    <div id="app">
+        <header class="game-header">
+            <h1>10,000 Dice Game</h1>
+            <div class="game-status">
+                <span id="game-phase">Setup</span>
+                <span id="current-player"></span>
+            </div>
+        </header>
+
+        <main class="game-main">
+            <div id="game-board" class="game-board">
+                <!-- Game content will be rendered here -->
+            </div>
+        </main>
+
+        <footer class="game-footer">
+            <div class="game-controls">
+                <button id="new-game-btn" class="btn btn-secondary">New Game</button>
+                <button id="add-player-btn" class="btn btn-secondary">Add Player</button>
+            </div>
+        </footer>
+    </div>
+
+    <script type="module" src="/src/main.js"></script>
+</body>
+</html>

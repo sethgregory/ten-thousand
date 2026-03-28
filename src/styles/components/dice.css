@@ -1,0 +1,116 @@
+.dice-container {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 15px;
+  padding: 20px;
+  min-height: 100px;
+}
+
+.die {
+  width: 60px;
+  height: 60px;
+  background-color: var(--white);
+  border: 2px solid var(--secondary-color);
+  border-radius: 10px;
+  position: relative;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  padding: 5px;
+}
+
+.die:hover:not(.die-locked):not(.die-empty) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.die-empty {
+  border-style: dashed;
+  border-color: var(--gray);
+  cursor: default;
+}
+
+.die-selected {
+  border-color: var(--dice-selected);
+  background-color: rgba(52, 152, 219, 0.1);
+  transform: scale(1.05);
+}
+
+.die-locked {
+  border-color: var(--dice-locked);
+  background-color: rgba(39, 174, 96, 0.1);
+  cursor: default;
+}
+
+.die-not-scoring {
+  opacity: 0.4;
+  cursor: not-allowed;
+  filter: grayscale(0.5);
+}
+
+.die-pip {
+  width: 8px;
+  height: 8px;
+  background-color: var(--dice-pip);
+  border-radius: 50%;
+  justify-self: center;
+  align-self: center;
+}
+
+/* Pip positions for grid */
+.die-pip:nth-child(1) { grid-area: a; }
+.die-pip:nth-child(2) { grid-area: b; }
+.die-pip:nth-child(3) { grid-area: c; }
+.die-pip:nth-child(4) { grid-area: d; }
+.die-pip:nth-child(5) { grid-area: e; }
+.die-pip:nth-child(6) { grid-area: f; }
+
+.die {
+  grid-template-areas:
+    "p1 . p2"
+    "p3 p4 p5"
+    "p6 . p7";
+}
+
+/* Specific layouts for each value */
+.die-val-1 .die-pip { grid-area: p4; }
+
+.die-val-2 .die-pip:nth-child(1) { grid-area: p1; }
+.die-val-2 .die-pip:nth-child(2) { grid-area: p7; }
+
+.die-val-3 .die-pip:nth-child(1) { grid-area: p1; }
+.die-val-3 .die-pip:nth-child(2) { grid-area: p4; }
+.die-val-3 .die-pip:nth-child(3) { grid-area: p7; }
+
+.die-val-4 .die-pip:nth-child(1) { grid-area: p1; }
+.die-val-4 .die-pip:nth-child(2) { grid-area: p2; }
+.die-val-4 .die-pip:nth-child(3) { grid-area: p6; }
+.die-val-4 .die-pip:nth-child(4) { grid-area: p7; }
+
+.die-val-5 .die-pip:nth-child(1) { grid-area: p1; }
+.die-val-5 .die-pip:nth-child(2) { grid-area: p2; }
+.die-val-5 .die-pip:nth-child(3) { grid-area: p4; }
+.die-val-5 .die-pip:nth-child(4) { grid-area: p6; }
+.die-val-5 .die-pip:nth-child(5) { grid-area: p7; }
+
+.die-val-6 .die-pip:nth-child(1) { grid-area: p1; }
+.die-val-6 .die-pip:nth-child(2) { grid-area: p2; }
+.die-val-6 .die-pip:nth-child(3) { grid-area: p3; }
+.die-val-6 .die-pip:nth-child(4) { grid-area: p5; }
+.die-val-6 .die-pip:nth-child(5) { grid-area: p6; }
+.die-val-6 .die-pip:nth-child(6) { grid-area: p7; }
+
+@keyframes roll {
+  0% { transform: rotate(0deg) scale(0.9); }
+  25% { transform: rotate(90deg) scale(1.1); }
+  50% { transform: rotate(180deg) scale(0.9); }
+  75% { transform: rotate(270deg) scale(1.1); }
+  100% { transform: rotate(360deg) scale(1); }
+}
+
+.die-rolling {
+  animation: roll 0.4s ease-in-out;
+}
