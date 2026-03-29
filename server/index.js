@@ -2,9 +2,24 @@ import express from 'express';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import { RoomManager } from './RoomManager.js';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 const httpServer = createServer(app);
+
+// Serve static files from the 'dist' directory (Vite build output)
+const distPath = path.join(__dirname, '../dist');
+app.use(express.static(distPath));
+
+// Fallback to index.html for SPA routing
+app.get('*', (req, res) => {
+  res.sendFile(path.join(distPath, 'index.html'));
+});
+
 const io = new Server(httpServer, {
   cors: {
     origin: "*", // In production, restrict this to your domain
@@ -336,7 +351,7 @@ setInterval(() => {
   roomManager.cleanup();
 }, 60 * 1000);
 
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 3000;
 httpServer.listen(PORT, '0.0.0.0', () => {
   console.log(`Multiplayer server running on port ${PORT}`);
 });

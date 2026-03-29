@@ -63,6 +63,19 @@ The application is built with a modular architecture, separating core game logic
     npm test
     ```
 
+### Running with Docker
+
+1.  **Build the Docker image:**
+    ```bash
+    docker build -t ten-thousand .
+    ```
+
+2.  **Run the container:**
+    ```bash
+    docker run -p 3000:3000 ten-thousand
+    ```
+    *The app will be available at `http://localhost:3000` (includes both frontend and multiplayer backend).*
+
 ## 🎮 Game Modes
 
 -   **Local Multiplayer**: Play with friends on the same device (pass-and-play). Add players in the setup screen and take turns rolling.
