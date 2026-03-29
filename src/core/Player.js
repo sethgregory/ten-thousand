@@ -52,6 +52,33 @@ export class Player extends EventEmitter {
   }
 
   /**
+   * Manually set the player's total score (Live Scorekeeping mode)
+   * @param {number} score - The exact total score to set
+   */
+  setTotalScore(score) {
+    if (typeof score !== 'number' || score < 0) {
+      throw new Error('Score must be a non-negative number');
+    }
+
+    const oldScore = this.totalScore;
+    this.totalScore = score;
+
+    // Adjust board status based on new score
+    if (this.totalScore >= GAME_CONFIG.MINIMUM_BOARD_SCORE) {
+      this.isOnBoard = true;
+    } else if (this.totalScore === 0) {
+      this.isOnBoard = false;
+    }
+
+    this.emit('score_changed', {
+      player: this,
+      oldScore,
+      newScore: this.totalScore,
+      manualAdjustment: true
+    });
+  }
+
+  /**
    * Record a completed turn
    * @param {object} turnResult - Details of the turn
    */

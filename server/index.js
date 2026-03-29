@@ -92,22 +92,30 @@ io.on('connection', (socket) => {
 
       if (player) {
         player.isOnline = true;
-      } else {
+        
+        // Reset host offline timer if host reconnected
+        if (player.id === room.hostId) {
+          room.hostOfflineSince = null;
+          console.log(`Host reconnected to room ${code}. Host cleanup timer reset.`);
+        }
+      } else if (room.game.mode !== 'live_scoring') {
+        // Normal mode: auto-add the player
         player = room.game.addPlayer(playerName);
         player.isOnline = true;
       }
+      // Live scoring mode: if not found, player remains undefined (spectator)
 
       room.allOfflineSince = null; // Reset inactive timer
       roomManager.updateActivity(code); // Track activity
 
       socket.join(code);
       room.sockets.add(socket.id);
-      socketToPlayer.set(socket.id, { code, playerId: player.id });
+      socketToPlayer.set(socket.id, { code, playerId: player ? player.id : null });
 
       // Notify the joining player
       socket.emit('game_joined', {
         code,
-        playerId: player.id,
+        playerId: player ? player.id : null,
         gameState: room.game.getState(),
         hostId: room.hostId,
         isLocked: room.isLocked
@@ -116,6 +124,7 @@ io.on('connection', (socket) => {
       // Notify others in the room
       io.to(code).emit('player_joined', {
         playerName,
+        isSpectator: !player,
         gameState: room.game.getState()
       });
 
@@ -190,6 +199,48 @@ io.on('connection', (socket) => {
     if (!room) return;
 
     const game = room.game;
+    
+    // Actions that don't require an active turn
+    if (action === 'add_player' || action === 'remove_player' || action === 'switch_player' || action === 'adjust_total_score') {
+      try {
+        let result;
+        if (action === 'add_player') {
+          result = game.addPlayer(data.name);
+          console.log(`[Server] Player ${data.name} added to room ${code}`);
+        } else if (action === 'remove_player') {
+          game.removePlayer(data.id);
+          result = { id: data.id };
+          console.log(`[Server] Player ${data.id} removed from room ${code}`);
+        } else if (action === 'switch_player') {
+          game.jumpToPlayer(data.playerId);
+          result = { playerId: data.playerId };
+          console.log(`[Server] Switched to player ${data.playerId} in room ${code}`);
+        } else if (action === 'adjust_total_score') {
+          game.adjustPlayerScore(data.playerId, data.newTotal);
+          result = { playerId: data.playerId, newTotal: data.newTotal };
+          console.log(`[Server] Adjusted score for ${data.playerId} to ${data.newTotal} in room ${code}`);
+        }
+
+        roomManager.updateActivity(code);
+        io.to(code).emit('state_updated', {
+          gameState: game.getState(),
+          lastAction: { 
+            action, 
+            data, 
+            result, 
+            playerId: data.playerId || (result && (result.id || result.playerId)) 
+          }
+        });
+        
+        // Also notify via rooms_list for player count
+        io.emit('rooms_list', { rooms: roomManager.getActiveRooms() });
+        return;
+      } catch (error) {
+        socket.emit('error', { message: error.message });
+        return;
+      }
+    }
+
     const turn = game.currentTurn;
     if (!turn) return;
 
@@ -219,13 +270,6 @@ io.on('connection', (socket) => {
           game.recordLiveScore(data.points);
           result = { points: data.points };
           break;
-        case 'add_player':
-          result = game.addPlayer(data.name);
-          break;
-        case 'remove_player':
-          game.removePlayer(data.id);
-          result = { id: data.id };
-          break;
       }
 
       // Track activity and broadcast updated state to everyone in the room
@@ -248,29 +292,36 @@ io.on('connection', (socket) => {
       const room = roomManager.getRoom(code);
 
       if (room) {
-        const player = room.game.players.find(p => p.id === playerId);
-        if (player) {
-          player.isOnline = false;
-          console.log(`Player ${player.name} went offline in room ${code}`);
+        if (playerId) {
+          const player = room.game.players.find(p => p.id === playerId);
+          if (player) {
+            player.isOnline = false;
+            console.log(`Player ${player.name} went offline in room ${code}`);
 
-          // Check if ALL players are now offline
-          const anyOnline = room.game.players.some(p => p.isOnline);
-          if (!anyOnline) {
-            room.allOfflineSince = Date.now();
-            console.log(`Room ${code} is now completely offline. Cleanup timer started.`);
-          }
+            // If this was the host, track when they went offline
+            if (playerId === room.hostId) {
+              room.hostOfflineSince = Date.now();
+              console.log(`Host went offline in room ${code}. Host cleanup timer started.`);
+            }
 
-          // Broadcast update to the room
+            // Check if ALL players are now offline
+            const anyOnline = room.game.players.some(p => p.isOnline);
+            if (!anyOnline) {
+              room.allOfflineSince = Date.now();
+              console.log(`Room ${code} is now completely offline. Cleanup timer started.`);
+            }
 
-          io.to(code).emit('state_updated', {
-            gameState: room.game.getState()
-          });
-
-          // If still in setup, also notify via player_joined to refresh lobby UI
-          if (room.game.phase === 'setup') {
-            io.to(code).emit('player_joined', {
+            // Broadcast update to the room
+            io.to(code).emit('state_updated', {
               gameState: room.game.getState()
             });
+
+            // If still in setup, also notify via player_joined to refresh lobby UI
+            if (room.game.phase === 'setup') {
+              io.to(code).emit('player_joined', {
+                gameState: room.game.getState()
+              });
+            }
           }
         }
         room.sockets.delete(socket.id);

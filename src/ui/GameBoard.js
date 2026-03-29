@@ -83,6 +83,23 @@ export class GameBoard extends EventEmitter {
           this.gameLog.log(`${actor.name} ended turn and banked ${result.pointsScored} points. Total: ${actor.totalScore}.`, 'success');
         }
         break;
+
+      case 'record_score':
+        if (result && result.points !== undefined) {
+          if (result.points === 0) {
+            this.gameLog.log(`!!! BUST !!! ${actor.name} scored 0 points.`, 'bust');
+            this.triggerBustFlash();
+          } else {
+            this.gameLog.log(`${actor.name} recorded ${result.points} points. Total: ${actor.totalScore}.`, 'success');
+          }
+        }
+        break;
+        
+      case 'adjust_total_score':
+        if (result && result.newTotal !== undefined) {
+          this.gameLog.log(`${actor.name}'s total score was adjusted to ${result.newTotal}.`, 'system');
+        }
+        break;
         
       case 'select':
         // 'select' actions are usually too noisy to log individually
@@ -126,17 +143,26 @@ export class GameBoard extends EventEmitter {
             <div id="live-scoring-input" class="live-scoring-input" style="display: none;">
               <div class="manual-score-card">
                 <h3>Manual Score Entry</h3>
-                <p>Enter the total points scored this turn using real dice.</p>
-                <div class="score-input-group">
-                  <input type="number" id="manual-score-input" placeholder="Points (e.g. 750)" step="50" min="0">
-                  <button id="submit-score-btn" class="btn btn-primary">Record Score</button>
+                <p>Accumulate points by clicking buttons or typing below.</p>
+                
+                <div class="score-input-row">
+                  <input type="number" id="manual-score-input" value="0" step="50" min="0">
                 </div>
+
+                <div class="score-action-row">
+                  <button id="submit-score-btn" class="btn btn-primary">Record Score</button>
+                  <button id="clear-score-btn" class="btn btn-secondary" title="Reset to 0">Clear</button>
+                </div>
+
                 <div class="score-quick-buttons">
-                  <button class="btn btn-secondary quick-score-btn" data-points="0">BUST (0)</button>
-                  <button class="btn btn-secondary quick-score-btn" data-points="500">500</button>
-                  <button class="btn btn-secondary quick-score-btn" data-points="1000">1000</button>
-                  <button class="btn btn-secondary quick-score-btn" data-points="1500">1500</button>
-                  <button class="btn btn-secondary quick-score-btn" data-points="2000">2000</button>
+                  <button class="btn btn-secondary quick-score-btn" data-points="50">+50</button>
+                  <button class="btn btn-secondary quick-score-btn" data-points="100">+100</button>
+                  <button class="btn btn-secondary quick-score-btn" data-points="500">+500</button>
+                  <button class="btn btn-secondary quick-score-btn" data-points="1000">+1000</button>
+                </div>
+
+                <div class="score-adjustment-row" style="margin-top: 20px;">
+                  <button id="adjust-total-btn" class="btn btn-secondary" title="Set current player's total score">Adjust Total</button>
                 </div>
               </div>
             </div>
@@ -177,6 +203,7 @@ export class GameBoard extends EventEmitter {
     // UI events
     this.controls.on('roll_clicked', () => this.onRollClicked());
     this.controls.on('bank_clicked', () => this.onBankClicked());
+    this.scoreBoard.on('player_clicked', (data) => this.onPlayerClicked(data));
     this.diceRenderer.on('die_clicked', (data) => {
       if (this.isRemote) {
         // Only allow clicking if it's our turn
@@ -187,6 +214,24 @@ export class GameBoard extends EventEmitter {
         this.updateControlStates();
       }
     });
+  }
+
+  /**
+   * Handle player item clicked on scoreboard
+   * @param {object} data - { playerId }
+   */
+  onPlayerClicked({ playerId }) {
+    if (this.game.mode !== 'live_scoring' || !this.isHost) return;
+
+    if (this.isRemote) {
+      this.networkClient.sendAction('switch_player', { playerId });
+    } else {
+      try {
+        this.game.jumpToPlayer(playerId);
+      } catch (error) {
+        this.controls.setStatusMessage(error.message, 'warning');
+      }
+    }
   }
 
   /**
@@ -500,32 +545,53 @@ export class GameBoard extends EventEmitter {
     // Attach live scoring listeners if host
     if (isHost && this.game.mode === 'live_scoring' && !this.liveScoringListenersAdded) {
       const submitBtn = this.container.querySelector('#submit-score-btn');
+      const adjustBtn = this.container.querySelector('#adjust-total-btn');
+      const clearBtn = this.container.querySelector('#clear-score-btn');
       const scoreInput = this.container.querySelector('#manual-score-input');
       const quickBtns = this.container.querySelectorAll('.quick-score-btn');
 
       if (submitBtn) {
         submitBtn.addEventListener('click', () => {
-          const points = parseInt(scoreInput.value);
-          if (!isNaN(points)) {
-            this.submitManualScore(points);
-            scoreInput.value = '';
-          }
+          const points = parseInt(scoreInput.value) || 0;
+          this.submitManualScore(points);
+          scoreInput.value = '0';
         });
+
+        if (adjustBtn) {
+          adjustBtn.addEventListener('click', () => {
+            const player = this.game.getCurrentPlayer();
+            if (!player) return;
+            
+            const newTotal = prompt(`Adjust total score for ${player.name}:`, player.totalScore);
+            if (newTotal !== null && newTotal !== '') {
+              const score = parseInt(newTotal);
+              if (!isNaN(score) && score >= 0) {
+                this.adjustTotalScore(player.id, score);
+              }
+            }
+          });
+        }
+
+        if (clearBtn) {
+          clearBtn.addEventListener('click', () => {
+            scoreInput.value = '0';
+          });
+        }
 
         scoreInput.addEventListener('keypress', (e) => {
           if (e.key === 'Enter') {
-            const points = parseInt(scoreInput.value);
-            if (!isNaN(points)) {
-              this.submitManualScore(points);
-              scoreInput.value = '';
-            }
+            const points = parseInt(scoreInput.value) || 0;
+            this.submitManualScore(points);
+            scoreInput.value = '0';
           }
         });
 
         quickBtns.forEach(btn => {
           btn.addEventListener('click', () => {
-            const points = parseInt(btn.dataset.points);
-            this.submitManualScore(points);
+            const action = btn.dataset.points;
+            const current = parseInt(scoreInput.value) || 0;
+            const add = parseInt(action);
+            scoreInput.value = (current + add).toString();
           });
         });
 
@@ -548,6 +614,25 @@ export class GameBoard extends EventEmitter {
       this.networkClient.sendAction('record_score', { points });
     } else {
       this.game.recordLiveScore(points);
+    }
+  }
+
+  /**
+   * Submit a manual score adjustment for the current player
+   * @param {string} playerId - ID of the player to adjust
+   * @param {number} newTotal - The new total score to set
+   */
+  adjustTotalScore(playerId, newTotal) {
+    if (!this.isHost) return;
+
+    if (this.isRemote) {
+      this.networkClient.sendAction('adjust_total_score', { playerId, newTotal });
+    } else {
+      try {
+        this.game.adjustPlayerScore(playerId, newTotal);
+      } catch (error) {
+        this.controls.setStatusMessage(error.message, 'warning');
+      }
     }
   }
 

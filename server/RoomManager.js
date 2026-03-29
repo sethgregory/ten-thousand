@@ -24,6 +24,7 @@ export class RoomManager {
       sockets: new Set(),
       createdAt: Date.now(),
       allOfflineSince: null,
+      hostOfflineSince: null, // Tracks when the host specifically disconnected
       lastActivity: Date.now(),
       isLocked: false,
       hostId: null // Will be set when first player joins
@@ -157,7 +158,14 @@ export class RoomManager {
         continue;
       }
 
-      // Rule 3: Games in setup mode with no activity for 5+ minutes
+      // Rule 3: Host specifically has been offline for more than 5 minutes in live scoring mode
+      if (room.game.mode === 'live_scoring' && room.hostOfflineSince && room.hostOfflineSince < fiveMinsAgo) {
+        console.log(`Cleaning up room ${code} (Live scoring host offline >5m)`);
+        this.removeRoom(code);
+        continue;
+      }
+
+      // Rule 4: Games in setup mode with no activity for 5+ minutes
       if (room.game.phase === 'setup' && room.lastActivity && room.lastActivity < fiveMinsAgo) {
         console.log(`Cleaning up room ${code} (Setup phase inactive >5m)`);
         this.removeRoom(code);

@@ -43,11 +43,13 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     playerManager.on('start_live_scoring', ({ scorekeeperName }) => {
+      console.log(`[main] start_live_scoring received for ${scorekeeperName}`);
       game.players = [];
       networkClient.createLiveGame(scorekeeperName);
     });
 
     playerManager.on('begin_live_game', () => {
+      console.log('[main] begin_live_game received');
       networkClient.startLiveGame();
     });
 
@@ -61,8 +63,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Network event listeners
   networkClient.on('game_created', ({ code, gameState, hostId, isLocked }) => {
+    console.log(`[main] game_created received: code=${code}, mode=${gameState.mode}`);
     syncGameState(gameState);
     if (game.mode === 'live_scoring') {
+      console.log(`[main] updating live lobby for code ${code}`);
       playerManager.updateLiveLobby(code, game.players);
     } else {
       playerManager.updateHostLobby(code, game.players);

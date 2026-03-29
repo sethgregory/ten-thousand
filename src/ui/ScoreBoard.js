@@ -40,7 +40,7 @@ export class ScoreBoard extends EventEmitter {
     if (!list) return;
 
     list.innerHTML = players.map(player => `
-      <div class="player-score-item ${player.id === currentPlayerId ? 'current-player-item' : ''} ${player.isOnBoard ? 'on-board' : ''} ${player.isOnline === false ? 'is-offline' : ''}">
+      <div class="player-score-item ${player.id === currentPlayerId ? 'current-player-item' : ''} ${player.isOnBoard ? 'on-board' : ''} ${player.isOnline === false ? 'is-offline' : ''}" data-id="${player.id}">
         <span class="player-name">
           ${player.name}${player.id === currentPlayerId ? ' 🎲' : ''}
           ${player.isOnline === false ? '<small>(Offline)</small>' : ''}
@@ -49,6 +49,13 @@ export class ScoreBoard extends EventEmitter {
         ${!player.isOnBoard ? '<span class="off-board-badge">Off Board</span>' : ''}
       </div>
     `).join('');
+
+    // Add click listeners
+    list.querySelectorAll('.player-score-item').forEach(item => {
+      item.addEventListener('click', () => {
+        this.emit('player_clicked', { playerId: item.dataset.id });
+      });
+    });
   }
 
   /**

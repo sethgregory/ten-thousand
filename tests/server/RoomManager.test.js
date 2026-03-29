@@ -217,6 +217,37 @@ describe('RoomManager', () => {
       expect(roomManager.getRoom(code)).toBeUndefined();
     });
 
+    test('should clean up live scoring rooms if host is offline for 5+ minutes', () => {
+      // Create a live scoring room
+      const code = roomManager.createRoom('live_scoring');
+      const room = roomManager.getRoom(code);
+      room.hostId = 'host123';
+
+      // Simulate host offline for 5+ minutes
+      const sixMinutesAgo = Date.now() - (6 * 60 * 1000);
+      room.hostOfflineSince = sixMinutesAgo;
+
+      // Run cleanup
+      roomManager.cleanup();
+
+      // Room should be removed
+      expect(roomManager.getRoom(code)).toBeUndefined();
+    });
+
+    test('should not clean up live scoring rooms if host is still online', () => {
+      // Create a live scoring room
+      const code = roomManager.createRoom('live_scoring');
+      const room = roomManager.getRoom(code);
+      room.hostId = 'host123';
+      room.hostOfflineSince = null; // Host is online
+
+      // Run cleanup
+      roomManager.cleanup();
+
+      // Room should still exist
+      expect(roomManager.getRoom(code)).toBeTruthy();
+    });
+
     test('should clean up rooms with all players offline for 5+ minutes', () => {
       // Create a room
       const code = roomManager.createRoom();

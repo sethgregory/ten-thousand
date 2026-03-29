@@ -745,20 +745,28 @@ body {
   margin-bottom: 20px;
 }
 
-.score-input-group {
+.score-input-row {
+  margin-bottom: 15px;
+  display: flex;
+  justify-content: center;
+}
+
+.score-input-row input {
+  padding: 12px;
+  font-size: 1.5rem;
+  width: 180px;
+  border: 2px solid var(--primary-color);
+  border-radius: 6px;
+  text-align: center;
+  font-family: monospace;
+}
+
+.score-action-row {
   display: flex;
   gap: 10px;
   justify-content: center;
   margin-bottom: 20px;
-}
-
-.score-input-group input {
-  padding: 12px;
-  font-size: 1.2rem;
-  width: 150px;
-  border: 1px solid var(--gray);
-  border-radius: 6px;
-  text-align: center;
+  flex-wrap: wrap;
 }
 
 .score-quick-buttons {
@@ -766,6 +774,8 @@ body {
   flex-wrap: wrap;
   gap: 10px;
   justify-content: center;
+  border-top: 1px solid var(--gray);
+  padding-top: 15px;
 }
 
 .quick-score-btn {

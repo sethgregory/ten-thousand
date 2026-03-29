@@ -105,6 +105,28 @@ export class Game extends EventEmitter {
 
     this.startNewTurn();
   }
+/**
+ * Manually adjust a specific player's total score (Live Scorekeeping mode)
+ * @param {string} playerId - ID of the player to adjust
+ * @param {number} newTotal - The new total score to set
+ */
+adjustPlayerScore(playerId, newTotal) {
+  if (this.mode !== 'live_scoring') {
+    throw new Error('Can only adjust total scores in live_scoring mode');
+  }
+
+  const player = this.players.find(p => p.id === playerId);
+  if (!player) {
+    throw new Error('Player not found');
+  }
+
+  player.setTotalScore(newTotal);
+
+  // In live scoring, if someone reaches the score, we check if they won
+  if (player.hasWon() && this.phase === GAME_PHASES.PLAYING) {
+    this.triggerFinalRound(player);
+  }
+}
 
   /**
    * Record a manual score for the current turn (Live Scorekeeping mode)
@@ -120,6 +142,24 @@ export class Game extends EventEmitter {
     }
 
     this.currentTurn.recordManualScore(points);
+  }
+
+  /**
+   * Manually switch to a specific player's turn (Live Scorekeeping mode)
+   * @param {string} playerId - ID of the player to switch to
+   */
+  jumpToPlayer(playerId) {
+    if (this.mode !== 'live_scoring') {
+      throw new Error('Can only jump to player in live_scoring mode');
+    }
+
+    const index = this.players.findIndex(p => p.id === playerId);
+    if (index === -1) {
+      throw new Error('Player not found');
+    }
+
+    this.currentPlayerIndex = index;
+    this.startNewTurn();
   }
 
   /**

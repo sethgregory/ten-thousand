@@ -65,8 +65,7 @@ export class PlayerManager extends EventEmitter {
           <div id="host-setup" class="setup-section" style="display: none;">
             <h3>Host Game</h3>
             <div id="host-initial">
-              <div class="player-input-group">
-                <input type="text" id="host-name-input" placeholder="Your name" maxlength="20">
+              <div class="join-input-group">
                 <button id="create-game-btn" class="btn btn-primary">Create Lobby</button>
               </div>
             </div>
@@ -87,7 +86,6 @@ export class PlayerManager extends EventEmitter {
             <div id="join-initial">
               <div class="join-input-group">
                 <input type="text" id="join-code-input" placeholder="5-letter code" maxlength="5" class="code-input">
-                <input type="text" id="join-name-input" placeholder="Your name" maxlength="20">
                 <button id="join-game-btn" class="btn btn-primary">Join</button>
               </div>
               <div class="room-list-container">
@@ -160,19 +158,23 @@ export class PlayerManager extends EventEmitter {
 
     // Online setup
     this.container.querySelector('#create-game-btn').addEventListener('click', () => {
-      const name = this.container.querySelector('#host-name-input').value.trim();
-      if (name) {
-        this.saveUserName(name);
-        this.emit('host_game', { playerName: name });
+      if (this.userName) {
+        this.emit('host_game', { playerName: this.userName });
+      } else {
+        alert('Please set your name first using the edit button at the top.');
       }
     });
 
     this.container.querySelector('#join-game-btn').addEventListener('click', () => {
       const code = this.container.querySelector('#join-code-input').value.trim();
-      const name = this.container.querySelector('#join-name-input').value.trim();
-      if (code && name) {
-        this.saveUserName(name);
-        this.emit('join_game', { code, playerName: name });
+      if (code) {
+        if (this.userName) {
+          this.emit('join_game', { code, playerName: this.userName });
+        } else {
+          alert('Please set your name first using the edit button at the top.');
+        }
+      } else {
+        alert('Please enter a room code.');
       }
     });
 
@@ -182,10 +184,16 @@ export class PlayerManager extends EventEmitter {
 
     // Live scoring setup
     this.container.querySelector('#start-live-btn').addEventListener('click', () => {
-      const name = this.container.querySelector('#live-scorekeeper-input').value.trim();
+      const nameInput = this.container.querySelector('#live-scorekeeper-input');
+      const name = nameInput ? nameInput.value.trim() : '';
+      console.log(`[PlayerManager] start-live-btn clicked, name: "${name}"`);
       if (name) {
         this.saveUserName(name);
+        console.log(`[PlayerManager] Emitting start_live_scoring for ${name}`);
         this.emit('start_live_scoring', { scorekeeperName: name });
+      } else {
+        alert('Please enter your name to start scorekeeping.');
+        if (nameInput) nameInput.focus();
       }
     });
 
@@ -216,13 +224,9 @@ export class PlayerManager extends EventEmitter {
    */
   prefillNameFields() {
     if (this.userName) {
-      const hostNameInput = this.container.querySelector('#host-name-input');
-      const joinNameInput = this.container.querySelector('#join-name-input');
       const playerNameInput = this.container.querySelector('#player-name-input');
       const liveScorekeeperInput = this.container.querySelector('#live-scorekeeper-input');
 
-      if (hostNameInput) hostNameInput.value = this.userName;
-      if (joinNameInput) joinNameInput.value = this.userName;
       if (playerNameInput) playerNameInput.value = this.userName;
       if (liveScorekeeperInput) liveScorekeeperInput.value = this.userName;
     }
@@ -385,16 +389,11 @@ export class PlayerManager extends EventEmitter {
           return;
         }
 
-        const nameInput = this.container.querySelector('#join-name-input');
-        const name = nameInput.value.trim();
-
-        if (!name) {
-          alert('Please enter your name first!');
-          nameInput.focus();
-          return;
+        if (this.userName) {
+          this.emit('join_game', { code, playerName: this.userName });
+        } else {
+          alert('Please set your name first using the edit button at the top!');
         }
-
-        this.emit('join_game', { code, playerName: name });
       });
     });
   }
@@ -417,7 +416,7 @@ export class PlayerManager extends EventEmitter {
    * Update the UI when joining a game
    */
   updateJoinLobby(players) {
-    this.container.querySelector('.player-input-group').style.display = 'none';
+    this.container.querySelector('#join-initial').style.display = 'none';
     this.container.querySelector('#join-lobby').style.display = 'block';
     
     const list = this.container.querySelector('#join-player-list');

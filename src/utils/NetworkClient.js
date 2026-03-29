@@ -16,12 +16,24 @@ export class NetworkClient extends EventEmitter {
 
   /**
    * Connect to the server
+   * @param {Function} [callback] - Function to call once connected
    */
-  connect() {
-    if (this.socket) return;
+  connect(callback) {
+    if (this.socket) {
+      if (this.socket.connected && callback) {
+        callback();
+      } else if (callback) {
+        this.socket.once('connect', callback);
+      }
+      return;
+    }
 
     console.log(`Connecting to multiplayer server at ${this.serverUrl}...`);
     this.socket = io(this.serverUrl);
+
+    if (callback) {
+      this.socket.once('connect', callback);
+    }
 
     this.socket.on('connect', () => {
       console.log('Connected to multiplayer server successfully');
@@ -83,9 +95,10 @@ export class NetworkClient extends EventEmitter {
    * @param {string} playerName - Name of the host
    */
   createGame(playerName) {
-    this.connect();
-    console.log(`Emitting create_game for ${playerName}`);
-    this.socket.emit('create_game', { playerName });
+    this.connect(() => {
+      console.log(`Emitting create_game for ${playerName}`);
+      this.socket.emit('create_game', { playerName });
+    });
   }
 
   /**
@@ -93,9 +106,11 @@ export class NetworkClient extends EventEmitter {
    * @param {string} scorekeeperName - Name of the scorekeeper
    */
   createLiveGame(scorekeeperName) {
-    this.connect();
-    console.log(`Emitting create_live_game for ${scorekeeperName}`);
-    this.socket.emit('create_live_game', { playerName: scorekeeperName });
+    console.log(`[NetworkClient] createLiveGame called for ${scorekeeperName}`);
+    this.connect(() => {
+      console.log(`[NetworkClient] Emitting create_live_game for ${scorekeeperName}`);
+      this.socket.emit('create_live_game', { playerName: scorekeeperName });
+    });
   }
 
   /**
@@ -104,9 +119,10 @@ export class NetworkClient extends EventEmitter {
    * @param {string} playerName - Name of the joining player
    */
   joinGame(code, playerName) {
-    this.connect();
-    console.log(`Emitting join_game for ${playerName} with code ${code}`);
-    this.socket.emit('join_game', { code: code.toUpperCase(), playerName });
+    this.connect(() => {
+      console.log(`Emitting join_game for ${playerName} with code ${code}`);
+      this.socket.emit('join_game', { code: code.toUpperCase(), playerName });
+    });
   }
 
   /**
