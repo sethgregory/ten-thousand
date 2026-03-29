@@ -228,6 +228,19 @@ export class Turn extends EventEmitter {
   }
 
   /**
+   * Record a manual score for the turn (Live Scorekeeping mode)
+   * @param {number} points - Points scored in the turn
+   */
+  recordManualScore(points) {
+    if (this.isComplete) {
+      throw new Error('Cannot record score on completed turn');
+    }
+
+    this.turnScore = points;
+    this.completeTurn(points === 0 ? TURN_RESULTS.BUST : TURN_RESULTS.BANKED);
+  }
+
+  /**
    * Complete the turn with the specified result
    * @param {string} result - Turn result from TURN_RESULTS
    */

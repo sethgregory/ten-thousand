@@ -25,9 +25,18 @@ io.on('connection', (socket) => {
 
   // Create a new game
   socket.on('create_game', ({ playerName }) => {
-    console.log(`Received create_game from ${socket.id} for player ${playerName}`);
+    handleCreateGame(socket, playerName, 'normal');
+  });
+
+  // Create a new live scoring session
+  socket.on('create_live_game', ({ playerName }) => {
+    handleCreateGame(socket, playerName, 'live_scoring');
+  });
+
+  function handleCreateGame(socket, playerName, mode) {
+    console.log(`Received create_game (${mode}) from ${socket.id} for player ${playerName}`);
     try {
-      const code = roomManager.createRoom();
+      const code = roomManager.createRoom(mode);
       const room = roomManager.getRoom(code);
       
       const player = room.game.addPlayer(playerName);
@@ -51,12 +60,12 @@ io.on('connection', (socket) => {
       // Notify all clients about the new room
       io.emit('rooms_list', { rooms: roomManager.getActiveRooms() });
       
-      console.log(`Game created: ${code} by ${playerName}`);
+      console.log(`Game created (${mode}): ${code} by ${playerName}`);
     } catch (error) {
       console.error('Error creating game:', error);
       socket.emit('error', { message: error.message });
     }
-  });
+  }
 
   // Join an existing game
   socket.on('join_game', ({ code, playerName }) => {
@@ -127,6 +136,14 @@ io.on('connection', (socket) => {
 
   // Start the game (host only)
   socket.on('start_game', ({ code }) => {
+    handleStartGame(code, socket);
+  });
+
+  socket.on('start_live_game', ({ code }) => {
+    handleStartGame(code, socket);
+  });
+
+  function handleStartGame(code, socket) {
     const room = roomManager.getRoom(code);
     if (!room) return;
 
@@ -139,7 +156,7 @@ io.on('connection', (socket) => {
     } catch (error) {
       socket.emit('error', { message: error.message });
     }
-  });
+  }
 
   // Lock/unlock game (host only)
   socket.on('toggle_room_lock', ({ code, locked }) => {
@@ -197,6 +214,17 @@ io.on('connection', (socket) => {
             turn.bankSelectedDice();
           }
           result = turn.endTurn();
+          break;
+        case 'record_score':
+          game.recordLiveScore(data.points);
+          result = { points: data.points };
+          break;
+        case 'add_player':
+          result = game.addPlayer(data.name);
+          break;
+        case 'remove_player':
+          game.removePlayer(data.id);
+          result = { id: data.id };
           break;
       }
 

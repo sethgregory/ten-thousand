@@ -89,6 +89,16 @@ export class NetworkClient extends EventEmitter {
   }
 
   /**
+   * Create a new live scorekeeping session
+   * @param {string} scorekeeperName - Name of the scorekeeper
+   */
+  createLiveGame(scorekeeperName) {
+    this.connect();
+    console.log(`Emitting create_live_game for ${scorekeeperName}`);
+    this.socket.emit('create_live_game', { playerName: scorekeeperName });
+  }
+
+  /**
    * Join an existing multiplayer game
    * @param {string} code - 5-letter room code
    * @param {string} playerName - Name of the joining player
@@ -105,6 +115,15 @@ export class NetworkClient extends EventEmitter {
   startGame() {
     if (this.socket && this.roomCode) {
       this.socket.emit('start_game', { code: this.roomCode });
+    }
+  }
+
+  /**
+   * Start the live scorekeeping game (Host only)
+   */
+  startLiveGame() {
+    if (this.socket && this.roomCode) {
+      this.socket.emit('start_live_game', { code: this.roomCode });
     }
   }
 

@@ -20,7 +20,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Initialize Setup Screen
   function showSetup() {
     gameBoardContainer.innerHTML = '';
-    playerManager = new PlayerManager(gameBoardContainer, game);
+    playerManager = new PlayerManager(gameBoardContainer, game, networkClient);
     
     playerManager.on('start_game', ({ mode }) => {
       if (mode === 'local') {
@@ -42,6 +42,15 @@ document.addEventListener('DOMContentLoaded', () => {
       networkClient.startGame();
     });
 
+    playerManager.on('start_live_scoring', ({ scorekeeperName }) => {
+      game.players = [];
+      networkClient.createLiveGame(scorekeeperName);
+    });
+
+    playerManager.on('begin_live_game', () => {
+      networkClient.startLiveGame();
+    });
+
     playerManager.on('request_rooms', () => {
       networkClient.listRooms();
     });
@@ -53,7 +62,11 @@ document.addEventListener('DOMContentLoaded', () => {
   // Network event listeners
   networkClient.on('game_created', ({ code, gameState, hostId, isLocked }) => {
     syncGameState(gameState);
-    playerManager.updateHostLobby(code, game.players);
+    if (game.mode === 'live_scoring') {
+      playerManager.updateLiveLobby(code, game.players);
+    } else {
+      playerManager.updateHostLobby(code, game.players);
+    }
     // Store initial lock status
     networkClient.currentLockStatus = isLocked;
   });
@@ -69,7 +82,11 @@ document.addEventListener('DOMContentLoaded', () => {
   networkClient.on('player_joined', ({ gameState }) => {
     syncGameState(gameState);
     if (networkClient.isHost) {
-      playerManager.updateHostLobby(networkClient.roomCode, game.players);
+      if (game.mode === 'live_scoring') {
+        playerManager.updateLiveLobby(networkClient.roomCode, game.players);
+      } else {
+        playerManager.updateHostLobby(networkClient.roomCode, game.players);
+      }
     } else {
       playerManager.updateJoinLobby(game.players);
     }
@@ -81,7 +98,7 @@ document.addEventListener('DOMContentLoaded', () => {
     gameBoard = new GameBoard(gameBoardContainer, game, networkClient);
     gameBoard.setIsHost(networkClient.isHost);
     gameBoard.updateLockStatus(networkClient.currentLockStatus || false);
-    phaseEl.textContent = 'Playing (Online)';
+    phaseEl.textContent = game.mode === 'live_scoring' ? 'Live Scorekeeping' : 'Playing (Online)';
 
     // Log first turn start
     const currentPlayer = game.getCurrentPlayer();
@@ -106,6 +123,17 @@ document.addEventListener('DOMContentLoaded', () => {
         const newPlayer = game.getCurrentPlayer();
         gameBoard.gameLog.log(`--- ${newPlayer.name}'s Turn ---`, 'system');
       }
+    } else if (game.phase === 'setup' && networkClient.roomCode) {
+        // Update lobby if player count changed
+        if (networkClient.isHost) {
+          if (game.mode === 'live_scoring') {
+            playerManager.updateLiveLobby(networkClient.roomCode, game.players);
+          } else {
+            playerManager.updateHostLobby(networkClient.roomCode, game.players);
+          }
+        } else {
+          playerManager.updateJoinLobby(game.players);
+        }
     }
   });
 

@@ -34,7 +34,8 @@ export const GAME_PHASES = {
   SETUP: 'setup',
   PLAYING: 'playing',
   FINAL_ROUND: 'final_round',
-  ENDED: 'ended'
+  ENDED: 'ended',
+  LIVE_SCORING: 'live_scoring'
 };
 
 // Turn results

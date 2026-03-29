@@ -17,6 +17,15 @@ export class Game extends EventEmitter {
     this.winner = null;
     this.finalRoundStarter = null;
     this.turnCount = 0;
+    this.mode = 'normal';
+  }
+
+  /**
+   * Set the game mode
+   * @param {string} mode - 'normal' or 'live_scoring'
+   */
+  setMode(mode) {
+    this.mode = mode;
   }
 
   /**
@@ -98,6 +107,22 @@ export class Game extends EventEmitter {
   }
 
   /**
+   * Record a manual score for the current turn (Live Scorekeeping mode)
+   * @param {number} points - Points scored in the turn
+   */
+  recordLiveScore(points) {
+    if (this.mode !== 'live_scoring') {
+      throw new Error('Can only record live scores in live_scoring mode');
+    }
+
+    if (!this.currentTurn) {
+      throw new Error('No active turn to record score for');
+    }
+
+    this.currentTurn.recordManualScore(points);
+  }
+
+  /**
    * Start a new turn for the current player
    */
   startNewTurn() {
@@ -123,8 +148,10 @@ export class Game extends EventEmitter {
       turn: this.currentTurn
     });
 
-    // Auto-start the first roll
-    this.currentTurn.startTurn();
+    // Auto-start the first roll (Normal mode only)
+    if (this.mode !== 'live_scoring') {
+      this.currentTurn.startTurn();
+    }
   }
 
   /**
@@ -182,6 +209,7 @@ export class Game extends EventEmitter {
     }
     
     this.phase = state.phase;
+    this.mode = state.mode || 'normal';
     this.turnCount = state.turnCount;
     this.finalRoundStarter = state.finalRoundStarter ? Player.fromSaveData(state.finalRoundStarter) : null;
     this.winner = state.winner ? Player.fromSaveData(state.winner) : null;
@@ -253,6 +281,7 @@ export class Game extends EventEmitter {
   getState() {
     return {
       phase: this.phase,
+      mode: this.mode,
       currentPlayer: this.getCurrentPlayer()?.getState(),
       players: this.players.map(p => p.getState()),
       turnCount: this.turnCount,

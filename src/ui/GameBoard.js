@@ -107,6 +107,8 @@ export class GameBoard extends EventEmitter {
    * Initialize the DOM structure for the game board
    */
   initLayout() {
+    const isLiveScoring = this.game.mode === 'live_scoring';
+    
     this.container.innerHTML = `
       <div class="game-board-grid">
         <aside id="scoreboard-container" class="scoreboard-container"></aside>
@@ -119,7 +121,28 @@ export class GameBoard extends EventEmitter {
               </button>
             </div>` : ''}
           </div>
-          <div id="dice-container" class="dice-container-wrapper"></div>
+          
+          ${isLiveScoring ? `
+            <div id="live-scoring-input" class="live-scoring-input" style="display: none;">
+              <div class="manual-score-card">
+                <h3>Manual Score Entry</h3>
+                <p>Enter the total points scored this turn using real dice.</p>
+                <div class="score-input-group">
+                  <input type="number" id="manual-score-input" placeholder="Points (e.g. 750)" step="50" min="0">
+                  <button id="submit-score-btn" class="btn btn-primary">Record Score</button>
+                </div>
+                <div class="score-quick-buttons">
+                  <button class="btn btn-secondary quick-score-btn" data-points="0">BUST (0)</button>
+                  <button class="btn btn-secondary quick-score-btn" data-points="500">500</button>
+                  <button class="btn btn-secondary quick-score-btn" data-points="1000">1000</button>
+                  <button class="btn btn-secondary quick-score-btn" data-points="1500">1500</button>
+                  <button class="btn btn-secondary quick-score-btn" data-points="2000">2000</button>
+                </div>
+              </div>
+            </div>
+          ` : ''}
+          
+          <div id="dice-container" class="dice-container-wrapper" ${isLiveScoring ? 'style="display: none;"' : ''}></div>
           <div id="controls-container" class="controls-container"></div>
           <div id="game-log-container" class="game-log-container"></div>
         </section>
@@ -183,6 +206,14 @@ export class GameBoard extends EventEmitter {
    * Handle turn start event
    */
   onTurnStarted({ player, turn }) {
+    if (this.game.mode === 'live_scoring') {
+      this.scoreBoard.update(this.game.players.map(p => p.getState()), player.id);
+      this.scoreBoard.updateTurnScore(0);
+      this.updateControlStates();
+      this.gameLog.log(`--- ${player.name}'s Turn ---`, 'system');
+      return;
+    }
+
     this.diceRenderer.setTurn(turn);
     this.diceRenderer.render(turn.dice.getAllStates());
     this.scoreBoard.update(this.game.players.map(p => p.getState()), player.id);
@@ -321,6 +352,31 @@ export class GameBoard extends EventEmitter {
    */
   updateControlStates() {
     const turn = this.game.currentTurn;
+    const isLiveScoring = this.game.mode === 'live_scoring';
+
+    if (isLiveScoring) {
+      const liveInput = this.container.querySelector('#live-scoring-input');
+      
+      if (!turn || turn.isComplete) {
+        if (liveInput) liveInput.style.display = 'none';
+        return;
+      }
+
+      this.controls.hideButtons();
+      
+      if (liveInput) {
+        liveInput.style.display = this.isHost ? 'block' : 'none';
+      }
+
+      const currentPlayer = this.game.getCurrentPlayer();
+      if (this.isHost) {
+        this.controls.setStatusMessage(`Recording score for ${currentPlayer.name}...`);
+      } else {
+        this.controls.setStatusMessage(`Waiting for ${currentPlayer.name} to roll real dice...`);
+      }
+      return;
+    }
+
     if (!turn || turn.isComplete) {
       this.controls.setRollEnabled(false);
       this.controls.setBankEnabled(false);
@@ -439,6 +495,59 @@ export class GameBoard extends EventEmitter {
           this.lockListenerAdded = true;
         }
       }
+    }
+
+    // Attach live scoring listeners if host
+    if (isHost && this.game.mode === 'live_scoring' && !this.liveScoringListenersAdded) {
+      const submitBtn = this.container.querySelector('#submit-score-btn');
+      const scoreInput = this.container.querySelector('#manual-score-input');
+      const quickBtns = this.container.querySelectorAll('.quick-score-btn');
+
+      if (submitBtn) {
+        submitBtn.addEventListener('click', () => {
+          const points = parseInt(scoreInput.value);
+          if (!isNaN(points)) {
+            this.submitManualScore(points);
+            scoreInput.value = '';
+          }
+        });
+
+        scoreInput.addEventListener('keypress', (e) => {
+          if (e.key === 'Enter') {
+            const points = parseInt(scoreInput.value);
+            if (!isNaN(points)) {
+              this.submitManualScore(points);
+              scoreInput.value = '';
+            }
+          }
+        });
+
+        quickBtns.forEach(btn => {
+          btn.addEventListener('click', () => {
+            const points = parseInt(btn.dataset.points);
+            this.submitManualScore(points);
+          });
+        });
+
+        this.liveScoringListenersAdded = true;
+      }
+    }
+
+    // Important: Refresh UI state now that host status is known
+    this.updateControlStates();
+  }
+
+  /**
+   * Submit a manual score for the current turn
+   * @param {number} points - Score to record
+   */
+  submitManualScore(points) {
+    if (!this.isHost) return;
+
+    if (this.isRemote) {
+      this.networkClient.sendAction('record_score', { points });
+    } else {
+      this.game.recordLiveScore(points);
     }
   }
 

@@ -10,11 +10,13 @@ export class RoomManager {
 
   /**
    * Create a new game room
+   * @param {string} mode - 'normal' or 'live_scoring'
    * @returns {string} The unique 5-letter room code
    */
-  createRoom() {
+  createRoom(mode = 'normal') {
     const code = this.generateCode();
     const game = new Game();
+    game.setMode(mode);
     
     this.rooms.set(code, {
       code,

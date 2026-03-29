@@ -89,6 +89,13 @@ export class Controls extends EventEmitter {
   }
 
   /**
+   * Hide the control buttons (used in live scoring mode)
+   */
+  hideButtons() {
+    this.container.querySelector('.control-buttons').style.display = 'none';
+  }
+
+  /**
    * Reset controls to default state
    */
   reset() {

@@ -1,5 +1,6 @@
 import { EventEmitter } from '../utils/EventEmitter.js';
 import { UserConfig } from '../utils/UserConfig.js';
+import { HowToPlay } from './HowToPlay.js';
 
 /**
  * Handles player management during game setup
@@ -8,11 +9,13 @@ export class PlayerManager extends EventEmitter {
   /**
    * @param {HTMLElement} container - The element where player management will be rendered
    * @param {object} game - The Game instance
+   * @param {object} networkClient - The NetworkClient instance
    */
-  constructor(container, game) {
+  constructor(container, game, networkClient) {
     super();
     this.container = container;
     this.game = game;
+    this.networkClient = networkClient;
     this.userName = UserConfig.getUserName();
 
     this.render();
@@ -38,6 +41,8 @@ export class PlayerManager extends EventEmitter {
           <button id="local-mode-btn" class="btn btn-primary">Local Multiplayer</button>
           <button id="host-mode-btn" class="btn btn-secondary">Host Online Game</button>
           <button id="join-mode-btn" class="btn btn-secondary">Join Online Game</button>
+          <button id="live-scoring-btn" class="btn btn-accent">🎲 Live Scorekeeping</button>
+          <button id="how-to-play-btn" class="how-to-play-btn">📖 How to Play</button>
         </div>
 
         <div id="setup-content" class="setup-content" style="display: none;">
@@ -97,6 +102,31 @@ export class PlayerManager extends EventEmitter {
               <div id="join-player-list" class="player-list-setup"></div>
             </div>
           </div>
+
+          <div id="live-scoring-setup" class="setup-section" style="display: none;">
+            <h3>Live Scorekeeping</h3>
+            <p class="mode-description">Track scores for an in-person game with real dice. Players can connect to watch the scoreboard.</p>
+            <div id="live-initial">
+              <div class="player-input-group">
+                <input type="text" id="live-scorekeeper-input" placeholder="Your name (scorekeeper)" maxlength="20">
+                <button id="start-live-btn" class="btn btn-primary">Start Scorekeeping</button>
+              </div>
+            </div>
+            <div id="live-lobby" style="display: none;">
+              <div class="room-code-display">
+                Spectator Code: <strong id="live-room-code">-----</strong>
+              </div>
+              <p>Share this code so others can watch the game!</p>
+              <div class="player-input-group">
+                <input type="text" id="live-player-input" placeholder="Add player name" maxlength="20">
+                <button id="add-live-player-btn" class="btn btn-primary">Add Player</button>
+              </div>
+              <div id="live-player-list" class="player-list-setup"></div>
+              <div class="setup-actions">
+                <button id="begin-live-game-btn" class="btn btn-accent" disabled>Begin Game</button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     `;
@@ -109,10 +139,14 @@ export class PlayerManager extends EventEmitter {
     // Name editing
     this.container.querySelector('#edit-name-btn').addEventListener('click', () => this.editUserName());
 
+    // How to Play button
+    this.container.querySelector('#how-to-play-btn').addEventListener('click', () => this.showHowToPlay());
+
     // Mode selection
     this.container.querySelector('#local-mode-btn').addEventListener('click', () => this.showSection('local'));
     this.container.querySelector('#host-mode-btn').addEventListener('click', () => this.showSection('host'));
     this.container.querySelector('#join-mode-btn').addEventListener('click', () => this.showSection('join'));
+    this.container.querySelector('#live-scoring-btn').addEventListener('click', () => this.showSection('live-scoring'));
     this.container.querySelector('#back-btn').addEventListener('click', () => this.showSection('mode'));
 
     // Local setup
@@ -146,6 +180,29 @@ export class PlayerManager extends EventEmitter {
       this.emit('start_multiplayer');
     });
 
+    // Live scoring setup
+    this.container.querySelector('#start-live-btn').addEventListener('click', () => {
+      const name = this.container.querySelector('#live-scorekeeper-input').value.trim();
+      if (name) {
+        this.saveUserName(name);
+        this.emit('start_live_scoring', { scorekeeperName: name });
+      }
+    });
+
+    this.container.querySelector('#add-live-player-btn').addEventListener('click', () => {
+      this.handleAddLivePlayer();
+    });
+
+    this.container.querySelector('#live-player-input').addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        this.handleAddLivePlayer();
+      }
+    });
+
+    this.container.querySelector('#begin-live-game-btn').addEventListener('click', () => {
+      this.emit('begin_live_game');
+    });
+
     // Listen for game events
     this.game.on('player_added', () => this.updatePlayerList());
     this.game.on('player_removed', () => this.updatePlayerList());
@@ -162,10 +219,12 @@ export class PlayerManager extends EventEmitter {
       const hostNameInput = this.container.querySelector('#host-name-input');
       const joinNameInput = this.container.querySelector('#join-name-input');
       const playerNameInput = this.container.querySelector('#player-name-input');
+      const liveScorekeeperInput = this.container.querySelector('#live-scorekeeper-input');
 
       if (hostNameInput) hostNameInput.value = this.userName;
       if (joinNameInput) joinNameInput.value = this.userName;
       if (playerNameInput) playerNameInput.value = this.userName;
+      if (liveScorekeeperInput) liveScorekeeperInput.value = this.userName;
     }
   }
 
@@ -200,12 +259,75 @@ export class PlayerManager extends EventEmitter {
   }
 
   /**
+   * Show the How to Play modal
+   */
+  showHowToPlay() {
+    const howToPlay = new HowToPlay(document.body);
+    howToPlay.on('closed', () => {
+      // Modal cleanup is handled by the HowToPlay component itself
+    });
+  }
+
+  /**
+   * Update the UI when starting live scoring
+   */
+  updateLiveLobby(code, players) {
+    this.container.querySelector('#live-initial').style.display = 'none';
+    this.container.querySelector('#live-lobby').style.display = 'block';
+    this.container.querySelector('#live-room-code').textContent = code;
+
+    const list = this.container.querySelector('#live-player-list');
+    list.innerHTML = players.map(p => `
+      <div class="player-setup-item">
+        <span>${p.name}</span>
+        <button class="remove-player-btn" data-id="${p.id}">&times;</button>
+      </div>
+    `).join('');
+
+    // Add remove listeners
+    list.querySelectorAll('.remove-player-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const id = btn.dataset.id;
+        if (this.networkClient && this.networkClient.roomCode) {
+          this.networkClient.sendAction('remove_player', { id });
+        } else {
+          this.game.removePlayer(id);
+        }
+      });
+    });
+
+    this.container.querySelector('#begin-live-game-btn').disabled = players.length < 2;
+  }
+
+  /**
+   * Handle adding a player to live scoring
+   */
+  handleAddLivePlayer() {
+    const input = this.container.querySelector('#live-player-input');
+    const name = input.value.trim();
+
+    if (name) {
+      try {
+        if (this.networkClient && this.networkClient.roomCode) {
+          this.networkClient.sendAction('add_player', { name });
+        } else {
+          this.game.addPlayer(name);
+        }
+        input.value = '';
+        input.focus();
+      } catch (error) {
+        alert(error.message);
+      }
+    }
+  }
+
+  /**
    * Switch between different setup views
    */
   showSection(section) {
     const modeSelection = this.container.querySelector('#mode-selection');
     const setupContent = this.container.querySelector('#setup-content');
-    const sections = ['local', 'host', 'join'];
+    const sections = ['local', 'host', 'join', 'live-scoring'];
 
     if (section === 'mode') {
       modeSelection.style.display = 'flex';

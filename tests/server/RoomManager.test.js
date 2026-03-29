@@ -18,6 +18,20 @@ describe('RoomManager', () => {
     jest.restoreAllMocks();
   });
 
+  describe('Room creation', () => {
+    test('should create rooms with default mode', () => {
+      const code = roomManager.createRoom();
+      const room = roomManager.getRoom(code);
+      expect(room.game.mode).toBe('normal');
+    });
+
+    test('should create rooms with specified mode', () => {
+      const code = roomManager.createRoom('live_scoring');
+      const room = roomManager.getRoom(code);
+      expect(room.game.mode).toBe('live_scoring');
+    });
+  });
+
   describe('Setup mode cleanup', () => {
     test('should clean up setup rooms inactive for 5+ minutes', () => {
       // Create a room
