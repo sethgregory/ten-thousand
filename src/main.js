@@ -17,9 +17,22 @@ document.addEventListener('DOMContentLoaded', () => {
   let playerManager = null;
   let gameBoard = null;
 
+  // Helper function to add game board event listeners
+  function setupGameBoardListeners(gameBoard) {
+    gameBoard.on('return_to_menu', () => {
+      showSetup();
+    });
+
+    gameBoard.on('restart_game', () => {
+      game.resetGame();
+      showSetup();
+    });
+  }
+
   // Initialize Setup Screen
   function showSetup() {
     gameBoardContainer.innerHTML = '';
+    gameBoard = null; // Clear existing game board reference
     playerManager = new PlayerManager(gameBoardContainer, game, networkClient);
     
     playerManager.on('start_game', ({ mode }) => {
@@ -100,6 +113,7 @@ document.addEventListener('DOMContentLoaded', () => {
     syncGameState(gameState);
     gameBoardContainer.innerHTML = '';
     gameBoard = new GameBoard(gameBoardContainer, game, networkClient);
+    setupGameBoardListeners(gameBoard);
     gameBoard.setIsHost(networkClient.isHost);
     gameBoard.updateLockStatus(networkClient.currentLockStatus || false);
     phaseEl.textContent = game.mode === 'live_scoring' ? 'Live Scorekeeping' : 'Playing (Online)';
@@ -227,6 +241,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (game.phase === 'playing' && !gameBoard) {
       gameBoardContainer.innerHTML = '';
       gameBoard = new GameBoard(gameBoardContainer, game, networkClient);
+      setupGameBoardListeners(gameBoard);
       gameBoard.setIsHost(networkClient.isHost);
       gameBoard.updateLockStatus(networkClient.currentLockStatus || false);
       phaseEl.textContent = 'Playing (Online)';
@@ -248,6 +263,9 @@ document.addEventListener('DOMContentLoaded', () => {
         gameBoard.scoreBoard.updateTurnScore(0);
       }
       gameBoard.updateControlStates();
+
+      // Check for phase transitions (e.g., game ending in multiplayer)
+      gameBoard.checkPhaseTransition();
     }
   }
 
@@ -256,6 +274,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!gameBoard) {
       gameBoardContainer.innerHTML = '';
       gameBoard = new GameBoard(gameBoardContainer, game);
+      setupGameBoardListeners(gameBoard);
       phaseEl.textContent = 'Playing';
     }
   });

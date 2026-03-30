@@ -22,6 +22,7 @@ export class GameBoard extends EventEmitter {
     this.isRemote = !!networkClient;
     this.isHost = false; // Will be set by main.js
     this.roomLocked = false; // Track lock status
+    this.previousPhase = game.phase; // Track phase changes
     
     this.initLayout();
     this.initComponents();
@@ -41,7 +42,10 @@ export class GameBoard extends EventEmitter {
     const currentPlayer = this.game.getCurrentPlayer();
     
     this.scoreBoard.update(players, currentPlayer?.id);
-    
+
+    // Check for phase transitions (e.g., game ending) when rendering state
+    this.checkPhaseTransition();
+
     if (this.isRemote) {
       this.gameLog.log(`Connected to room: ${this.networkClient.roomCode}`, 'system');
     }
@@ -386,10 +390,133 @@ export class GameBoard extends EventEmitter {
    * Handle game end event
    */
   onGameEnded({ winner, finalScores }) {
-    this.controls.setStatusMessage(`GAME OVER! ${winner.name} wins with ${winner.totalScore} points!`, 'success');
+    this.controls.setStatusMessage(`GAME OVER! ${winner.name} wins!`, 'success');
     this.controls.setRollEnabled(false);
     this.controls.setBankEnabled(false);
     this.gameLog.log(`GAME OVER! ${winner.name} wins!`, 'system');
+
+    // Show game over modal
+    this.showGameOverModal(winner, finalScores);
+  }
+
+  /**
+   * Create and show the game over modal
+   * @param {object} winner - The winning player
+   * @param {Array} finalScores - Array of {name, score} objects for all players
+   */
+  showGameOverModal(winner, finalScores) {
+    const modal = document.createElement('div');
+    modal.className = 'game-over-modal';
+    modal.innerHTML = `
+      <div class="modal-overlay" id="game-over-overlay">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h2>🎉 GAME OVER! 🎉</h2>
+          </div>
+          <div class="modal-body">
+            <div class="winner-announcement">
+              <h3>${winner.name} Wins!</h3>
+              <p class="winner-score">${winner.totalScore} points</p>
+            </div>
+
+            <div class="final-standings">
+              <h4>Final Standings:</h4>
+              <div class="standings-list">
+                ${finalScores
+                  .sort((a, b) => b.score - a.score)
+                  .map((player, index) => `
+                    <div class="standing-item ${player.name === winner.name ? 'winner' : ''}">
+                      <span class="rank">${index + 1}.</span>
+                      <span class="player-name">${player.name}</span>
+                      <span class="player-score">${player.score}</span>
+                    </div>
+                  `).join('')}
+              </div>
+            </div>
+
+            <div class="modal-actions">
+              <button class="btn btn-primary" id="return-to-menu">Return to Main Menu</button>
+              <button class="btn btn-secondary" id="new-game">New Game</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+
+    this.container.appendChild(modal);
+
+    // Set up event listeners
+    const returnToMenuBtn = modal.querySelector('#return-to-menu');
+    const newGameBtn = modal.querySelector('#new-game');
+    const overlay = modal.querySelector('#game-over-overlay');
+
+    returnToMenuBtn.addEventListener('click', () => {
+      modal.remove();
+      this.emit('return_to_menu');
+    });
+
+    newGameBtn.addEventListener('click', () => {
+      if (confirm('Start a new game with the same players?')) {
+        modal.remove();
+        this.emit('restart_game');
+      }
+    });
+
+    // Close on overlay click
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) {
+        modal.remove();
+        this.emit('return_to_menu');
+      }
+    });
+
+    // Close on Escape key
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && modal && modal.parentNode) {
+        modal.remove();
+        this.emit('return_to_menu');
+      }
+    });
+  }
+
+  /**
+   * Check for phase changes and trigger appropriate events (e.g., game over modal)
+   */
+  checkPhaseTransition() {
+    if (this.previousPhase !== this.game.phase) {
+      if (this.game.phase === 'ended' && this.previousPhase !== 'ended') {
+        // Game has just ended - trigger the game over modal
+        this.triggerGameOverForMultiplayer();
+      }
+      this.previousPhase = this.game.phase;
+    }
+  }
+
+  /**
+   * Trigger game over modal for multiplayer games (online/live scoring)
+   * Since these don't emit the regular game_ended event, we need to detect phase change
+   */
+  triggerGameOverForMultiplayer() {
+    if (this.game.phase === 'ended') {
+      let winner = this.game.winner;
+
+      // Fallback: If winner isn't set for some reason, determine it here
+      if (!winner && this.game.players.length > 0) {
+        winner = [...this.game.players].sort((a, b) => b.totalScore - a.totalScore)[0];
+      }
+
+      if (winner) {
+        const finalScores = this.game.players.map(p => ({
+          name: p.name,
+          score: p.totalScore
+        }));
+
+        this.onGameEnded({
+          winner: winner,
+          finalScores: finalScores
+        });
+      }
+    }
   }
 
   /**

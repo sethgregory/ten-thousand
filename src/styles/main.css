@@ -977,3 +977,153 @@ body {
     padding: 12px;
   }
 }
+
+/* Version Info Styles */
+.version-info {
+  text-align: center;
+  margin-top: 1rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--border-color);
+}
+
+.version-info span {
+  font-size: 0.75rem;
+  color: var(--secondary-color);
+  opacity: 0.7;
+}
+
+/* Game Over Modal Styles */
+.game-over-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 2000;
+}
+
+.game-over-modal .modal-overlay {
+  background-color: rgba(0, 0, 0, 0.8);
+}
+
+.game-over-modal .modal-content {
+  max-width: 500px;
+  text-align: center;
+}
+
+.winner-announcement {
+  margin-bottom: 2rem;
+  padding: 1.5rem;
+  background: linear-gradient(135deg, var(--success-color), var(--primary-color));
+  color: white;
+  border-radius: 12px;
+  margin-bottom: 1.5rem;
+}
+
+.winner-announcement h3 {
+  margin: 0 0 0.5rem 0;
+  font-size: 2rem;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.winner-score {
+  font-size: 1.5rem;
+  font-weight: bold;
+  margin: 0;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.final-standings {
+  margin-bottom: 2rem;
+}
+
+.final-standings h4 {
+  margin-bottom: 1rem;
+  color: var(--text-color);
+  font-size: 1.3rem;
+}
+
+.standings-list {
+  background: var(--background-color);
+  border-radius: 8px;
+  padding: 0.5rem;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.standing-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  border-radius: 6px;
+  margin-bottom: 0.25rem;
+  background: white;
+  border: 1px solid var(--border-color);
+  transition: background-color 0.2s ease;
+}
+
+.standing-item.winner {
+  background: linear-gradient(135deg, #fff9c4, #fff59d);
+  border-color: var(--primary-color);
+  font-weight: bold;
+}
+
+.standing-item:last-child {
+  margin-bottom: 0;
+}
+
+.rank {
+  font-weight: bold;
+  color: var(--primary-color);
+  min-width: 2rem;
+  text-align: left;
+}
+
+.player-name {
+  flex: 1;
+  text-align: left;
+  margin-left: 0.5rem;
+}
+
+.player-score {
+  font-weight: bold;
+  color: var(--success-color);
+  min-width: 4rem;
+  text-align: right;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+}
+
+.modal-actions .btn {
+  min-width: 140px;
+  padding: 0.75rem 1.5rem;
+}
+
+/* Responsive adjustments for game over modal */
+@media (max-width: 600px) {
+  .game-over-modal .modal-content {
+    max-width: 95vw;
+  }
+
+  .winner-announcement h3 {
+    font-size: 1.5rem;
+  }
+
+  .winner-score {
+    font-size: 1.2rem;
+  }
+
+  .modal-actions {
+    flex-direction: column;
+  }
+
+  .modal-actions .btn {
+    min-width: auto;
+    width: 100%;
+  }
+}

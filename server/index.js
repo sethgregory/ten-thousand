@@ -16,7 +16,7 @@ const distPath = path.join(__dirname, '../dist');
 app.use(express.static(distPath));
 
 // Fallback to index.html for SPA routing
-app.get(/^(?!\/socket\.io).*/, (req, res) => {
+app.use((req, res, next) => {
   res.sendFile(path.join(distPath, 'index.html'));
 });
 

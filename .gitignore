@@ -33,3 +33,5 @@ Thumbs.db
 # Project specific
 tests/output/
 coverage/
+
+compose.yaml
