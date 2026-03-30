@@ -3,7 +3,8 @@ export const GAME_CONFIG = {
   DICE_COUNT: 6,
   WINNING_SCORE: 10000,
   MINIMUM_BOARD_SCORE: 750,
-  DICE_FACES: 6
+  DICE_FACES: 6,
+  VERSION: '1.01'
 };
 
 // Scoring rules

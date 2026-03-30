@@ -1,6 +1,6 @@
 {
   "name": "ten-thousand-dice-game",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Web-based implementation of the 10,000 dice game",
   "main": "src/main.js",
   "type": "module",

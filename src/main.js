@@ -3,8 +3,15 @@ import { GameBoard } from './ui/GameBoard.js';
 import { PlayerManager } from './ui/PlayerManager.js';
 import { NetworkClient } from './utils/NetworkClient.js';
 import { Scorer } from './core/Scorer.js';
+import { GAME_CONFIG } from './utils/constants.js';
 
 document.addEventListener('DOMContentLoaded', () => {
+  // Set version in UI
+  const versionElement = document.getElementById('game-version');
+  if (versionElement) {
+    versionElement.textContent = `v${GAME_CONFIG.VERSION}`;
+  }
+
   const game = new Game();
   // Connect to the same host/port as the frontend (Vite will proxy /socket.io to 3001)
   const serverUrl = `${window.location.protocol}//${window.location.host}`;
